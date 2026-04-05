@@ -33,4 +33,14 @@ describe('KANA_DATA', () => {
 
     expect(result.some((kana) => kana.group === 'combination')).toBe(true);
   });
+
+  it('does not treat mixed mode as a wildcard', () => {
+    const result = buildEnabledKanaSet(KANA_DATA, {
+      scriptMode: 'mixed',
+      enabledRows: ['vowels', 'k'],
+      enabledGroups: ['base', 'dakuten', 'combination']
+    });
+
+    expect(result).toEqual([]);
+  });
 });
