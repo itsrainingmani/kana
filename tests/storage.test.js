@@ -72,6 +72,29 @@ describe('storage', () => {
     });
   });
 
+  it('falls back to defaults for malformed persisted session state', () => {
+    localStorage.setItem(
+      'kana-trainer-session',
+      JSON.stringify({
+        scriptMode: 'mixed',
+        mode: 'mystery',
+        enabledRows: 'oops',
+        enabledGroups: null,
+        fontDifficulty: ''
+      })
+    );
+
+    const store = createSessionStore();
+
+    expect(store.getState()).toMatchObject({
+      scriptMode: 'hiragana',
+      mode: 'kana-to-sound',
+      enabledRows: ['vowels', 'k', 's', 't', 'n', 'h', 'm', 'y', 'r', 'w'],
+      enabledGroups: ['base'],
+      fontDifficulty: 'standard'
+    });
+  });
+
   it('returns defensive copies from kana stats', () => {
     const progress = createProgressStore();
 
@@ -96,5 +119,41 @@ describe('storage', () => {
     expect(() => progress.record('h-a', 'kana-to-sound', 'mystery')).toThrow(
       /unsupported outcome/i
     );
+  });
+
+  it('normalizes malformed persisted progress entries before reading and writing', () => {
+    localStorage.setItem(
+      'kana-trainer-progress',
+      JSON.stringify({
+        'h-a': 'broken',
+        'h-ka': {
+          attempts: 'bad',
+          correct: 2,
+          incorrect: null,
+          assisted: undefined,
+          drawingOrderFailures: 'bad'
+        }
+      })
+    );
+
+    const progress = createProgressStore();
+
+    expect(progress.getKanaStats('h-a')).toMatchObject({
+      attempts: 0,
+      correct: 0,
+      incorrect: 0,
+      assisted: 0,
+      drawingOrderFailures: 0
+    });
+
+    progress.record('h-ka', 'kana-to-sound', 'correct');
+
+    expect(progress.getKanaStats('h-ka')).toMatchObject({
+      attempts: 1,
+      correct: 3,
+      incorrect: 0,
+      assisted: 0,
+      drawingOrderFailures: 0
+    });
   });
 });
