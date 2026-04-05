@@ -76,7 +76,7 @@ describe('storage', () => {
     localStorage.setItem(
       'kana-trainer-session',
       JSON.stringify({
-        scriptMode: 'mixed',
+        scriptMode: 'broken',
         mode: 'mystery',
         enabledRows: 'oops',
         enabledGroups: null,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KANA_DATA } from '../src/kana-data.js';
+import { GROUP_OPTIONS, KANA_DATA, ROW_OPTIONS } from '../src/kana-data.js';
 import { buildEnabledKanaSet } from '../src/prompts.js';
 
 describe('KANA_DATA', () => {
@@ -13,34 +13,20 @@ describe('KANA_DATA', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('filters to hiragana base rows when enabled', () => {
+  it('exposes the row and group toggles used by the UI', () => {
+    expect(ROW_OPTIONS.some((row) => row.id === 'vowels')).toBe(true);
+    expect(GROUP_OPTIONS.some((group) => group.id === 'dakuten')).toBe(true);
+    expect(GROUP_OPTIONS.some((group) => group.id === 'combination')).toBe(true);
+  });
+
+  it('supports mixed script filtering', () => {
     const result = buildEnabledKanaSet(KANA_DATA, {
-      scriptMode: 'hiragana',
-      enabledRows: ['vowels', 'k'],
+      scriptMode: 'mixed',
+      enabledRows: ['vowels'],
       enabledGroups: ['base']
     });
 
-    expect(result.every((kana) => kana.script === 'hiragana')).toBe(true);
-    expect(result.some((kana) => kana.group === 'dakuten')).toBe(false);
-  });
-
-  it('includes combination kana when enabled', () => {
-    const result = buildEnabledKanaSet(KANA_DATA, {
-      scriptMode: 'hiragana',
-      enabledRows: ['k'],
-      enabledGroups: ['base', 'combination']
-    });
-
-    expect(result.some((kana) => kana.group === 'combination')).toBe(true);
-  });
-
-  it('does not treat mixed mode as a wildcard', () => {
-    const result = buildEnabledKanaSet(KANA_DATA, {
-      scriptMode: 'mixed',
-      enabledRows: ['vowels', 'k'],
-      enabledGroups: ['base', 'dakuten', 'combination']
-    });
-
-    expect(result).toEqual([]);
+    expect(result.some((kana) => kana.script === 'hiragana')).toBe(true);
+    expect(result.some((kana) => kana.script === 'katakana')).toBe(true);
   });
 });

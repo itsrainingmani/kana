@@ -2,7 +2,7 @@ const SESSION_KEY = 'kana-trainer-session';
 const PROGRESS_KEY = 'kana-trainer-progress';
 const ALLOWED_MODES = new Set(['kana-to-sound', 'sound-to-kana', 'drawing']);
 const ALLOWED_OUTCOMES = new Set(['correct', 'incorrect', 'assisted', 'order-failure']);
-const ALLOWED_SCRIPTS = new Set(['hiragana', 'katakana']);
+const ALLOWED_SCRIPTS = new Set(['hiragana', 'katakana', 'mixed']);
 
 const DEFAULT_SESSION = {
   scriptMode: 'hiragana',
