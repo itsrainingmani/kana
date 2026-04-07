@@ -1,4 +1,10 @@
+from __future__ import annotations
+
 from torch import nn
+
+
+def get_model_input_shape() -> tuple[int, int, int]:
+    return (1, 48, 48)
 
 
 class KanaClassifier(nn.Module):
@@ -22,5 +28,10 @@ class KanaClassifier(nn.Module):
         self.classifier = nn.Linear(64, num_classes)
 
     def forward(self, inputs):
-        features = self.features(inputs)
-        return self.classifier(features.flatten(1))
+        return self.classifier(self.features(inputs).flatten(1))
+
+
+def build_model(label_count: int) -> KanaClassifier:
+    if label_count <= 0:
+        raise ValueError('label_count must be positive')
+    return KanaClassifier(label_count)

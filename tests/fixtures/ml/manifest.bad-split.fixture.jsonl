@@ -1,0 +1,3 @@
+{"glyph": "a", "image_path": "images/train-a.png", "label_id": "a", "label_index": 0, "source_archive": "fixture-images.zip", "split": "mystery"}
+{"glyph": "ka", "image_path": "images/val-ka.png", "label_id": "ka", "label_index": 1, "source_archive": "fixture-images.zip", "split": "val"}
+{"glyph": "a", "image_path": "images/test-a.png", "label_id": "a", "label_index": 0, "source_archive": "fixture-images.zip", "split": "test"}

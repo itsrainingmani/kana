@@ -1,35 +1,21 @@
-# Kana ML
+# ML Pipeline
 
-This directory contains the local training and export pipeline for the kana handwriting classifier.
+Run these commands from the `ml/` directory.
 
-## Tooling
+They use the default pipeline paths under `ml/` and `public/models/`:
 
-Use `uv` for dependency management and execution.
-
-## Commands
-
-- `uv sync`
-- `uv run python prepare_etl.py --downloads-dir ~/Downloads/etl`
-- `uv run python train.py`
-- `uv run python eval.py`
-- `uv run python export_onnx.py`
-
-## ETL Intake
-
-Download the ETL archives into `~/Downloads/etl`, then run `prepare_etl.py` to:
-
-- unpack the official ETL files with the provided `unpack_etlcdb.zip` utility
-- collect metadata and images into `ml/data/raw/`
-- filter rows to the non-combination kana labels in `ml/labels.json`
-- write a normalized manifest into `ml/data/processed/`
-
-## Artifacts
-
-- checkpoints and metrics are written under `ml/artifacts/`
-- exported browser assets land in `public/models/kana-classifier.onnx`
-- exported labels land in `public/models/kana-labels.json`
-
-## Runtime Artifacts
-
+- `ml/data/processed/manifest.jsonl`
+- `ml/labels.json`
+- `ml/artifacts/`
 - `public/models/kana-classifier.onnx`
 - `public/models/kana-labels.json`
+
+```bash
+uv sync
+uv run python prepare_etl.py --downloads-dir ~/Downloads/etl
+uv run python train.py
+uv run python eval.py
+uv run python export_onnx.py
+```
+
+The ETL intake step expects archives in `~/Downloads/etl` and will unpack the official ETL files into `ml/data/raw/`, filter rows to the supported non-combination kana labels in `ml/labels.json`, and write a normalized manifest to `ml/data/processed/manifest.jsonl`.
