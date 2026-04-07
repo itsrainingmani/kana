@@ -1,0 +1,20 @@
+[project]
+name = "kana-ml"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "bitstring",
+  "jaconv",
+  "torch",
+  "torchvision",
+  "onnx",
+  "onnxruntime",
+  "numpy",
+  "pandas",
+  "pillow",
+  "scikit-learn",
+  "tqdm",
+]
+
+[tool.uv]
+package = false

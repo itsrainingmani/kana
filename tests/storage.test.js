@@ -2,16 +2,23 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createProgressStore, createSessionStore } from '../src/storage.js';
 
 describe('storage', () => {
+  const defaultSelections = {
+    'hiragana:core': ['vowels', 'k', 's', 't', 'n', 'h', 'm', 'y', 'r', 'w', 'nn'],
+    'hiragana:combination': [],
+    'katakana:core': [],
+    'katakana:combination': []
+  };
+
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('provides hiragana kana-to-sound defaults', () => {
+  it('provides hiragana-first kana sheet defaults', () => {
     const store = createSessionStore();
 
     expect(store.getState()).toMatchObject({
-      scriptMode: 'hiragana',
-      mode: 'kana-to-sound'
+      mode: 'kana-to-sound',
+      selectedRows: defaultSelections
     });
   });
 
@@ -19,16 +26,24 @@ describe('storage', () => {
     const store = createSessionStore();
 
     store.setState({
-      scriptMode: 'katakana',
-      mode: 'sound-to-kana',
-      enabledRows: ['k']
+      mode: 'sound-to-drawing',
+      selectedRows: {
+        ...defaultSelections,
+        'hiragana:core': ['vowels', 'k', 'g'],
+        'katakana:core': ['vowels', 'k']
+      },
+      enabledFonts: ['mincho']
     });
 
     const restored = createSessionStore();
     expect(restored.getState()).toMatchObject({
-      scriptMode: 'katakana',
-      mode: 'sound-to-kana',
-      enabledRows: ['k']
+      mode: 'sound-to-drawing',
+      selectedRows: {
+        ...defaultSelections,
+        'hiragana:core': ['vowels', 'k', 'g'],
+        'katakana:core': ['vowels', 'k']
+      },
+      enabledFonts: ['mincho']
     });
   });
 
@@ -36,14 +51,13 @@ describe('storage', () => {
     const store = createSessionStore();
 
     const snapshot = store.getState();
-    snapshot.scriptMode = 'katakana';
-    snapshot.enabledRows.push('x');
-    snapshot.enabledGroups.push('bonus');
+    snapshot.selectedRows['hiragana:core'].push('x');
+    snapshot.selectedRows['katakana:core'].push('vowels');
+    snapshot.enabledFonts.push('custom');
 
     expect(store.getState()).toMatchObject({
-      scriptMode: 'hiragana',
-      enabledRows: ['vowels', 'k', 's', 't', 'n', 'h', 'm', 'y', 'r', 'w'],
-      enabledGroups: ['base']
+      selectedRows: defaultSelections,
+      enabledFonts: ['gothic', 'mincho', 'rounded', 'magic', 'dot']
     });
   });
 
@@ -51,12 +65,14 @@ describe('storage', () => {
     const progress = createProgressStore();
 
     progress.record('h-a', 'kana-to-sound', 'correct');
-    progress.record('h-a', 'drawing', 'order-failure');
+    progress.record('h-a', 'sound-to-kana', 'assisted');
+    progress.record('h-a', 'sound-to-drawing', 'partial');
 
     expect(progress.getKanaStats('h-a')).toMatchObject({
-      attempts: 2,
+      attempts: 3,
       correct: 1,
-      drawingOrderFailures: 1
+      assisted: 1,
+      partial: 1
     });
   });
 
@@ -76,22 +92,18 @@ describe('storage', () => {
     localStorage.setItem(
       'kana-trainer-session',
       JSON.stringify({
-        scriptMode: 'broken',
         mode: 'mystery',
-        enabledRows: 'oops',
-        enabledGroups: null,
-        fontDifficulty: ''
+        selectedRows: 'oops',
+        enabledFonts: []
       })
     );
 
     const store = createSessionStore();
 
     expect(store.getState()).toMatchObject({
-      scriptMode: 'hiragana',
       mode: 'kana-to-sound',
-      enabledRows: ['vowels', 'k', 's', 't', 'n', 'h', 'm', 'y', 'r', 'w'],
-      enabledGroups: ['base'],
-      fontDifficulty: 'standard'
+      selectedRows: defaultSelections,
+      enabledFonts: ['gothic', 'mincho', 'rounded', 'magic', 'dot']
     });
   });
 
@@ -130,8 +142,7 @@ describe('storage', () => {
           attempts: 'bad',
           correct: 2,
           incorrect: null,
-          assisted: undefined,
-          drawingOrderFailures: 'bad'
+          assisted: undefined
         }
       })
     );
@@ -142,8 +153,7 @@ describe('storage', () => {
       attempts: 0,
       correct: 0,
       incorrect: 0,
-      assisted: 0,
-      drawingOrderFailures: 0
+      assisted: 0
     });
 
     progress.record('h-ka', 'kana-to-sound', 'correct');
@@ -152,8 +162,7 @@ describe('storage', () => {
       attempts: 1,
       correct: 3,
       incorrect: 0,
-      assisted: 0,
-      drawingOrderFailures: 0
+      assisted: 0
     });
   });
 });

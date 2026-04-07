@@ -10,28 +10,38 @@ export const FONT_OPTIONS = [
     className: 'font-mincho'
   },
   {
-    id: 'display',
-    label: 'Display',
-    className: 'font-display'
+    id: 'rounded',
+    label: 'Rounded',
+    className: 'font-rounded'
+  },
+  {
+    id: 'magic',
+    label: 'Magic',
+    className: 'font-magic'
+  },
+  {
+    id: 'dot',
+    label: 'Dot',
+    className: 'font-dot'
   }
 ];
 
 export const ROW_OPTIONS = [
   { id: 'vowels', label: 'Vowels' },
-  { id: 'k', label: 'K' },
-  { id: 's', label: 'S' },
-  { id: 't', label: 'T' },
-  { id: 'n', label: 'N' },
-  { id: 'h', label: 'H' },
-  { id: 'm', label: 'M' },
-  { id: 'y', label: 'Y' },
-  { id: 'r', label: 'R' },
-  { id: 'w', label: 'W' },
-  { id: 'g', label: 'G' },
-  { id: 'z', label: 'Z' },
-  { id: 'd', label: 'D' },
-  { id: 'b', label: 'B' },
-  { id: 'p', label: 'P' }
+  { id: 'k', label: 'K Row' },
+  { id: 's', label: 'S Row' },
+  { id: 't', label: 'T Row' },
+  { id: 'n', label: 'N Row' },
+  { id: 'h', label: 'H Row' },
+  { id: 'm', label: 'M Row' },
+  { id: 'y', label: 'Y Row' },
+  { id: 'r', label: 'R Row' },
+  { id: 'w', label: 'W Row' },
+  { id: 'g', label: 'G Row' },
+  { id: 'z', label: 'Z Row' },
+  { id: 'd', label: 'D Row' },
+  { id: 'b', label: 'B Row' },
+  { id: 'p', label: 'P Row' }
 ];
 
 export const GROUP_OPTIONS = [
@@ -311,5 +321,6 @@ export const KANA_DATA = [
   ...buildRecords(COMBINATION_ROWS, 'combination')
 ].map((kana) => ({
   ...kana,
+  audioId: kana.romaji,
   strokes: STROKE_TEMPLATES[kana.id] ?? null
 }));

@@ -1,0 +1,5 @@
+bitstring
+jaconv
+pandas
+Pillow
+tqdm

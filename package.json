@@ -5,14 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "serve . -l 4173",
+    "audio:restore": "node scripts/restore-audio-sources.mjs",
+    "audio:build": "node scripts/build-audio-assets.mjs",
     "test": "vitest run",
     "test:ui": "vitest",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.2",
+    "@playwright/test": "^1.59.1",
     "jsdom": "^26.1.0",
-    "serve": "^14.2.4",
-    "vitest": "^3.2.4"
+    "onnxruntime-web": "^1.22.0",
+    "serve": "^14.2.6",
+    "vitest": "^4.1.2"
   }
 }

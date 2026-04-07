@@ -8,6 +8,121 @@
     <script type="module" src="/src/main.js"></script>
   </head>
   <body>
-    <div id="app"></div>
+    <main id="app" class="app-shell" data-enhanced="false">
+      <header class="poster-meta">
+        <div>
+          <h1 class="poster-title">仮名</h1>
+        </div>
+        <div class="poster-sidecar">
+          <p class="poster-slug" data-slot="mode-label">Kana To Sound</p>
+          <p class="poster-slug" data-slot="script-label">Hiragana</p>
+        </div>
+      </header>
+      <section class="drill-stage">
+        <section class="prompt-card" data-region="prompt">
+          <div class="prompt-card__rail">
+            <p class="module-label" data-slot="prompt-label">See / Type</p>
+            <p class="prompt-meta" data-slot="font-label">Gothic</p>
+          </div>
+          <div class="prompt-card__stage">
+            <div class="poster-kana font-gothic" data-slot="prompt-glyph">あ</div>
+            <button
+              class="audio-poster-button"
+              data-action="play-sound"
+              data-audio-state="idle"
+              aria-label="Replay syllable audio"
+              type="button"
+              hidden
+            >
+              <span class="audio-waveform" data-slot="audio-waveform" aria-hidden="true">
+                <canvas class="audio-waveform__canvas" data-slot="waveform-canvas"></canvas>
+              </span>
+              <span class="sr-only">Replay syllable</span>
+            </button>
+          </div>
+          <div class="prompt-status" data-slot="prompt-status" data-visible="false" aria-hidden="true">
+            <p class="prompt-status__message" data-slot="status-message"></p>
+            <p class="prompt-status__answer" data-slot="status-answer"></p>
+          </div>
+        </section>
+        <section class="interaction-card" data-region="interaction">
+          <div class="interaction-card__body">
+            <label class="answer-label" for="kana-answer" data-slot="answer-label">Type Romaji</label>
+            <input
+              id="kana-answer"
+              class="answer-input"
+              data-answer-input
+              type="text"
+              autocomplete="off"
+              autocapitalize="none"
+              inputmode="latin"
+              placeholder="ka / shi / tsu"
+              spellcheck="false"
+            />
+            <div class="choice-grid" data-choice-grid hidden></div>
+          </div>
+        </section>
+        <section class="hints-card" data-region="hints">
+          <p class="module-label">Hints</p>
+          <div class="hints-card__body" aria-hidden="true"></div>
+          <div class="toolbar-row hints-card__actions">
+            <button class="brutal-button" data-action="play-sound" type="button">Hear</button>
+            <button class="brutal-button" data-action="reveal" type="button">Reveal</button>
+          </div>
+        </section>
+      </section>
+      <section class="mode-rack" data-region="mode-controls">
+        <section class="control-card control-card--mode">
+          <p class="module-label">Mode</p>
+          <div class="toolbar-row" data-mode-group></div>
+        </section>
+      </section>
+      <section class="control-rack" data-region="controls">
+        <div class="control-strip">
+          <section class="control-card control-card--fonts">
+            <p class="module-label">Fonts</p>
+            <div class="font-grid" data-font-group></div>
+          </section>
+        </div>
+        <div class="stats-strip">
+          <div>
+            <p class="module-label">Attempts</p>
+            <p class="stats-value" data-slot="stats-attempts">0</p>
+          </div>
+          <div>
+            <p class="module-label">Correct</p>
+            <p class="stats-value" data-slot="stats-correct">0</p>
+          </div>
+          <div>
+            <p class="module-label">Assisted</p>
+            <p class="stats-value" data-slot="stats-assisted">0</p>
+          </div>
+          <div>
+            <p class="module-label">Strong</p>
+            <p class="stats-value" data-slot="stats-strong">0</p>
+          </div>
+        </div>
+      </section>
+      <section class="kana-sheets" data-region="kana-sheets">
+        <div class="reference-panel__body" data-reference-container>
+          <section class="reference-table">
+            <div class="section-heading">
+              <p class="module-label">Kana Sheets</p>
+              <h3>Charts Need JavaScript</h3>
+            </div>
+            <p class="poster-copy">Enable JavaScript for drill controls, audio, and row selection in the chart.</p>
+          </section>
+        </div>
+      </section>
+    </main>
+    <noscript>
+      <section class="reference-table">
+        <div class="section-heading">
+          <p class="module-label">Notice</p>
+          <h3>Static Reference</h3>
+        </div>
+        <p class="poster-copy">This page still works as a chart without JavaScript, but drills, audio, and saved progress need it enabled.</p>
+      </section>
+    </noscript>
   </body>
 </html>

@@ -9,10 +9,11 @@ function resizeCanvas(canvas) {
   canvas.height = Math.max(1, Math.floor(rect.height * ratio));
 
   const context = canvas.getContext('2d');
-  context.scale(ratio, ratio);
+  context.setTransform?.(1, 0, 0, 1, 0, 0);
+  context.scale?.(ratio, ratio);
   context.lineWidth = 4;
-  context.lineCap = 'square';
-  context.lineJoin = 'miter';
+  context.lineCap = 'round';
+  context.lineJoin = 'round';
   context.strokeStyle = '#111111';
   return context;
 }
@@ -26,59 +27,11 @@ export function normalizeStrokeSet(strokes, bounds) {
   );
 }
 
-export function gradeStrokeSet(actual, expected) {
-  if (!Array.isArray(expected) || expected.length === 0) {
-    return { correct: false, outcome: 'incorrect', message: 'no stroke template available' };
-  }
-
-  if (actual.length !== expected.length) {
-    return { correct: false, outcome: 'incorrect', message: 'stroke count mismatch' };
-  }
-
-  for (let index = 0; index < expected.length; index += 1) {
-    const actualStroke = actual[index];
-    const expectedStroke = expected[index].points;
-    const startDelta = distance(actualStroke[0], expectedStroke[0]);
-    const endDelta = distance(
-      actualStroke[actualStroke.length - 1],
-      expectedStroke[expectedStroke.length - 1]
-    );
-
-    if (startDelta + endDelta > 0.45) {
-      return {
-        correct: false,
-        outcome: 'order-failure',
-        message: `stroke ${index + 1} does not match the expected sequence`
-      };
-    }
-  }
-
-  return { correct: true, outcome: 'correct', message: 'correct stroke order' };
-}
-
-export function renderStrokeOrderSvg(strokes) {
-  return `
-    <svg viewBox="0 0 100 100" class="stroke-order-svg" aria-label="Stroke order guide">
-      ${strokes
-        .map((stroke, index) => {
-          const path = stroke.points
-            .map(([x, y], pointIndex) => `${pointIndex === 0 ? 'M' : 'L'} ${x * 100} ${y * 100}`)
-            .join(' ');
-
-          return `
-            <path d="${path}" data-stroke-index="${index}"></path>
-            <text x="${stroke.points[0][0] * 100}" y="${stroke.points[0][1] * 100 - 4}">${index + 1}</text>
-          `;
-        })
-        .join('')}
-    </svg>
-  `;
-}
-
 export function createDrawingPad(canvas) {
   const context = resizeCanvas(canvas);
   const strokes = [];
   let currentStroke = null;
+  let testStrokes = null;
 
   function getPoint(event) {
     const rect = canvas.getBoundingClientRect();
@@ -97,7 +50,7 @@ export function createDrawingPad(canvas) {
   }
 
   function pointerDown(event) {
-    canvas.setPointerCapture(event.pointerId);
+    canvas.setPointerCapture?.(event.pointerId);
     currentStroke = [getPoint(event)];
     strokes.push(currentStroke);
   }
@@ -127,7 +80,7 @@ export function createDrawingPad(canvas) {
     }
 
     currentStroke = null;
-    canvas.releasePointerCapture(event.pointerId);
+    canvas.releasePointerCapture?.(event.pointerId);
   }
 
   canvas.addEventListener('pointerdown', pointerDown);
@@ -140,14 +93,22 @@ export function createDrawingPad(canvas) {
   return {
     clear() {
       strokes.length = 0;
+      testStrokes = null;
       context.clearRect(0, 0, canvas.width, canvas.height);
     },
     getNormalizedStrokes() {
+      if (testStrokes) {
+        return testStrokes.map((stroke) => stroke.map((point) => [...point]));
+      }
+
       const rect = canvas.getBoundingClientRect();
       return normalizeStrokeSet(strokes, {
         width: rect.width || 1,
         height: rect.height || 1
       });
+    },
+    setStrokesForTest(nextStrokes) {
+      testStrokes = nextStrokes.map((stroke) => stroke.map((point) => [...point]));
     },
     destroy() {
       canvas.removeEventListener('pointerdown', pointerDown);

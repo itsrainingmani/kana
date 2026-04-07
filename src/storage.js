@@ -1,15 +1,27 @@
 const SESSION_KEY = 'kana-trainer-session';
 const PROGRESS_KEY = 'kana-trainer-progress';
-const ALLOWED_MODES = new Set(['kana-to-sound', 'sound-to-kana', 'drawing']);
-const ALLOWED_OUTCOMES = new Set(['correct', 'incorrect', 'assisted', 'order-failure']);
-const ALLOWED_SCRIPTS = new Set(['hiragana', 'katakana', 'mixed']);
+const ALLOWED_MODES = new Set(['kana-to-sound', 'sound-to-kana', 'sound-to-drawing']);
+const ALLOWED_OUTCOMES = new Set(['correct', 'incorrect', 'assisted', 'partial']);
+const DEFAULT_FONTS = ['gothic', 'mincho', 'rounded', 'magic', 'dot'];
+const DEFAULT_BASE_ROWS = ['vowels', 'k', 's', 't', 'n', 'h', 'm', 'y', 'r', 'w', 'nn'];
+const SHEET_KEYS = [
+  'hiragana:core',
+  'hiragana:combination',
+  'katakana:core',
+  'katakana:combination'
+];
+
+const DEFAULT_SELECTED_ROWS = {
+  'hiragana:core': [...DEFAULT_BASE_ROWS],
+  'hiragana:combination': [],
+  'katakana:core': [],
+  'katakana:combination': []
+};
 
 const DEFAULT_SESSION = {
-  scriptMode: 'hiragana',
   mode: 'kana-to-sound',
-  enabledRows: ['vowels', 'k', 's', 't', 'n', 'h', 'm', 'y', 'r', 'w'],
-  enabledGroups: ['base'],
-  fontDifficulty: 'standard'
+  selectedRows: DEFAULT_SELECTED_ROWS,
+  enabledFonts: [...DEFAULT_FONTS]
 };
 
 function createEmptyStats() {
@@ -18,41 +30,99 @@ function createEmptyStats() {
     correct: 0,
     incorrect: 0,
     assisted: 0,
-    drawingOrderFailures: 0
+    partial: 0
   };
 }
 
-function sanitizeStringArray(value, fallback) {
-  return Array.isArray(value)
-    ? value.filter((item) => typeof item === 'string' && item.trim() !== '')
-    : [...fallback];
+function sanitizeStringArray(value, fallback, { allowEmpty = false } = {}) {
+  if (!Array.isArray(value)) {
+    return [...fallback];
+  }
+
+  const filtered = value.filter((item) => typeof item === 'string' && item.trim() !== '');
+  return filtered.length > 0 || allowEmpty ? filtered : [...fallback];
 }
 
 function cloneSessionState(state) {
   return {
     ...state,
-    enabledRows: Array.isArray(state.enabledRows) ? [...state.enabledRows] : state.enabledRows,
-    enabledGroups: Array.isArray(state.enabledGroups) ? [...state.enabledGroups] : state.enabledGroups
+    selectedRows: Object.fromEntries(
+      Object.entries(state.selectedRows).map(([key, rows]) => [key, [...rows]])
+    ),
+    enabledFonts: [...state.enabledFonts]
   };
+}
+
+function sanitizeSelectedRows(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return cloneSessionState(DEFAULT_SESSION).selectedRows;
+  }
+
+  return Object.fromEntries(
+    SHEET_KEYS.map((key) => [
+      key,
+      sanitizeStringArray(value[key], DEFAULT_SELECTED_ROWS[key], { allowEmpty: true })
+    ])
+  );
+}
+
+function migrateLegacySelections(state = {}) {
+  const next = sanitizeSelectedRows(state.selectedRows);
+
+  if (state.selectedRows && typeof state.selectedRows === 'object' && !Array.isArray(state.selectedRows)) {
+    const hasLegacyKeys = Object.keys(state.selectedRows).some((key) => key.includes(':base') || key.includes(':dakuten') || key.includes(':handakuten'));
+
+    if (!hasLegacyKeys) {
+      return next;
+    }
+  }
+
+  const scriptMode =
+    state.scriptMode === 'katakana' || state.scriptMode === 'mixed' ? state.scriptMode : 'hiragana';
+  const enabledRows = sanitizeStringArray(state.enabledRows, DEFAULT_BASE_ROWS);
+  const enabledGroups = sanitizeStringArray(state.enabledGroups, ['base']);
+  const scripts = scriptMode === 'mixed' ? ['hiragana', 'katakana'] : [scriptMode];
+
+  const selections = sanitizeSelectedRows(null);
+
+  if (state.selectedRows && typeof state.selectedRows === 'object' && !Array.isArray(state.selectedRows)) {
+    for (const script of ['hiragana', 'katakana']) {
+      const core = new Set([
+        ...(state.selectedRows[`${script}:base`] ?? []),
+        ...(state.selectedRows[`${script}:dakuten`] ?? []),
+        ...(state.selectedRows[`${script}:handakuten`] ?? [])
+      ]);
+      const combination = new Set(state.selectedRows[`${script}:combination`] ?? []);
+
+      selections[`${script}:core`] = [...core];
+      selections[`${script}:combination`] = [...combination];
+    }
+
+    return selections;
+  }
+
+  for (const script of scripts) {
+    if (enabledGroups.some((group) => ['base', 'dakuten', 'handakuten'].includes(group))) {
+      selections[`${script}:core`] = [...enabledRows];
+    }
+
+    if (enabledGroups.includes('combination')) {
+      selections[`${script}:combination`] = [...enabledRows];
+    }
+  }
+
+  return selections;
 }
 
 function normalizeSessionState(state = {}) {
   const mode = ALLOWED_MODES.has(state.mode) ? state.mode : DEFAULT_SESSION.mode;
-  const scriptMode = ALLOWED_SCRIPTS.has(state.scriptMode)
-    ? state.scriptMode
-    : DEFAULT_SESSION.scriptMode;
 
   return {
     ...DEFAULT_SESSION,
     ...state,
     mode,
-    scriptMode,
-    enabledRows: sanitizeStringArray(state.enabledRows, DEFAULT_SESSION.enabledRows),
-    enabledGroups: sanitizeStringArray(state.enabledGroups, DEFAULT_SESSION.enabledGroups),
-    fontDifficulty:
-      typeof state.fontDifficulty === 'string' && state.fontDifficulty.trim() !== ''
-        ? state.fontDifficulty
-        : DEFAULT_SESSION.fontDifficulty
+    selectedRows: migrateLegacySelections(state),
+    enabledFonts: sanitizeStringArray(state.enabledFonts, DEFAULT_SESSION.enabledFonts)
   };
 }
 
@@ -65,9 +135,7 @@ function normalizeStats(stats) {
     correct: Number.isFinite(source.correct) ? source.correct : fallback.correct,
     incorrect: Number.isFinite(source.incorrect) ? source.incorrect : fallback.incorrect,
     assisted: Number.isFinite(source.assisted) ? source.assisted : fallback.assisted,
-    drawingOrderFailures: Number.isFinite(source.drawingOrderFailures)
-      ? source.drawingOrderFailures
-      : fallback.drawingOrderFailures
+    partial: Number.isFinite(source.partial) ? source.partial : fallback.partial
   };
 }
 
@@ -141,7 +209,18 @@ export function createSessionStore(storage) {
         validateMode(next.mode);
       }
 
-      state = cloneSessionState(normalizeSessionState({ ...state, ...next }));
+      state = cloneSessionState(
+        normalizeSessionState({
+          ...state,
+          ...next,
+          selectedRows: next.selectedRows
+            ? {
+                ...state.selectedRows,
+                ...next.selectedRows
+              }
+            : state.selectedRows
+        })
+      );
       writeJson(resolvedStorage, SESSION_KEY, state);
     }
   };
@@ -167,22 +246,7 @@ export function createProgressStore(storage) {
 
       const current = normalizeStats(state[id]);
       current.attempts += 1;
-
-      switch (outcome) {
-        case 'correct':
-          current.correct += 1;
-          break;
-        case 'incorrect':
-          current.incorrect += 1;
-          break;
-        case 'assisted':
-          current.assisted += 1;
-          break;
-        case 'order-failure':
-          current.drawingOrderFailures += 1;
-          break;
-      }
-
+      current[outcome] += 1;
       state[id] = current;
       persist();
     }

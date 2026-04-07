@@ -1,0 +1,996 @@
+[
+  {
+    "id": "h-a",
+    "glyph": "あ",
+    "romaji": "a",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-a",
+    "glyph": "ア",
+    "romaji": "a",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-i",
+    "glyph": "い",
+    "romaji": "i",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-i",
+    "glyph": "イ",
+    "romaji": "i",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-u",
+    "glyph": "う",
+    "romaji": "u",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-u",
+    "glyph": "ウ",
+    "romaji": "u",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-e",
+    "glyph": "え",
+    "romaji": "e",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-e",
+    "glyph": "エ",
+    "romaji": "e",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-o",
+    "glyph": "お",
+    "romaji": "o",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-o",
+    "glyph": "オ",
+    "romaji": "o",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ka",
+    "glyph": "か",
+    "romaji": "ka",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ka",
+    "glyph": "カ",
+    "romaji": "ka",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ki",
+    "glyph": "き",
+    "romaji": "ki",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ki",
+    "glyph": "キ",
+    "romaji": "ki",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ku",
+    "glyph": "く",
+    "romaji": "ku",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ku",
+    "glyph": "ク",
+    "romaji": "ku",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ke",
+    "glyph": "け",
+    "romaji": "ke",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ke",
+    "glyph": "ケ",
+    "romaji": "ke",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ko",
+    "glyph": "こ",
+    "romaji": "ko",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ko",
+    "glyph": "コ",
+    "romaji": "ko",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-sa",
+    "glyph": "さ",
+    "romaji": "sa",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-sa",
+    "glyph": "サ",
+    "romaji": "sa",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-shi",
+    "glyph": "し",
+    "romaji": "shi",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-shi",
+    "glyph": "シ",
+    "romaji": "shi",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-su",
+    "glyph": "す",
+    "romaji": "su",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-su",
+    "glyph": "ス",
+    "romaji": "su",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-se",
+    "glyph": "せ",
+    "romaji": "se",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-se",
+    "glyph": "セ",
+    "romaji": "se",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-so",
+    "glyph": "そ",
+    "romaji": "so",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-so",
+    "glyph": "ソ",
+    "romaji": "so",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ta",
+    "glyph": "た",
+    "romaji": "ta",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ta",
+    "glyph": "タ",
+    "romaji": "ta",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-chi",
+    "glyph": "ち",
+    "romaji": "chi",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-chi",
+    "glyph": "チ",
+    "romaji": "chi",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-tsu",
+    "glyph": "つ",
+    "romaji": "tsu",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-tsu",
+    "glyph": "ツ",
+    "romaji": "tsu",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-te",
+    "glyph": "て",
+    "romaji": "te",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-te",
+    "glyph": "テ",
+    "romaji": "te",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-to",
+    "glyph": "と",
+    "romaji": "to",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-to",
+    "glyph": "ト",
+    "romaji": "to",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-na",
+    "glyph": "な",
+    "romaji": "na",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-na",
+    "glyph": "ナ",
+    "romaji": "na",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ni",
+    "glyph": "に",
+    "romaji": "ni",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ni",
+    "glyph": "ニ",
+    "romaji": "ni",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-nu",
+    "glyph": "ぬ",
+    "romaji": "nu",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-nu",
+    "glyph": "ヌ",
+    "romaji": "nu",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ne",
+    "glyph": "ね",
+    "romaji": "ne",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ne",
+    "glyph": "ネ",
+    "romaji": "ne",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-no",
+    "glyph": "の",
+    "romaji": "no",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-no",
+    "glyph": "ノ",
+    "romaji": "no",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ha",
+    "glyph": "は",
+    "romaji": "ha",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ha",
+    "glyph": "ハ",
+    "romaji": "ha",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-hi",
+    "glyph": "ひ",
+    "romaji": "hi",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-hi",
+    "glyph": "ヒ",
+    "romaji": "hi",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-fu",
+    "glyph": "ふ",
+    "romaji": "fu",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-fu",
+    "glyph": "フ",
+    "romaji": "fu",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-he",
+    "glyph": "へ",
+    "romaji": "he",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-he",
+    "glyph": "ヘ",
+    "romaji": "he",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ho",
+    "glyph": "ほ",
+    "romaji": "ho",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ho",
+    "glyph": "ホ",
+    "romaji": "ho",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ma",
+    "glyph": "ま",
+    "romaji": "ma",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ma",
+    "glyph": "マ",
+    "romaji": "ma",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-mi",
+    "glyph": "み",
+    "romaji": "mi",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-mi",
+    "glyph": "ミ",
+    "romaji": "mi",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-mu",
+    "glyph": "む",
+    "romaji": "mu",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-mu",
+    "glyph": "ム",
+    "romaji": "mu",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-me",
+    "glyph": "め",
+    "romaji": "me",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-me",
+    "glyph": "メ",
+    "romaji": "me",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-mo",
+    "glyph": "も",
+    "romaji": "mo",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-mo",
+    "glyph": "モ",
+    "romaji": "mo",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ya",
+    "glyph": "や",
+    "romaji": "ya",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ya",
+    "glyph": "ヤ",
+    "romaji": "ya",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-yu",
+    "glyph": "ゆ",
+    "romaji": "yu",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-yu",
+    "glyph": "ユ",
+    "romaji": "yu",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-yo",
+    "glyph": "よ",
+    "romaji": "yo",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-yo",
+    "glyph": "ヨ",
+    "romaji": "yo",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ra",
+    "glyph": "ら",
+    "romaji": "ra",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ra",
+    "glyph": "ラ",
+    "romaji": "ra",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ri",
+    "glyph": "り",
+    "romaji": "ri",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ri",
+    "glyph": "リ",
+    "romaji": "ri",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ru",
+    "glyph": "る",
+    "romaji": "ru",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ru",
+    "glyph": "ル",
+    "romaji": "ru",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-re",
+    "glyph": "れ",
+    "romaji": "re",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-re",
+    "glyph": "レ",
+    "romaji": "re",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ro",
+    "glyph": "ろ",
+    "romaji": "ro",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-ro",
+    "glyph": "ロ",
+    "romaji": "ro",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-wa",
+    "glyph": "わ",
+    "romaji": "wa",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-wa",
+    "glyph": "ワ",
+    "romaji": "wa",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-wo",
+    "glyph": "を",
+    "romaji": "wo",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-wo",
+    "glyph": "ヲ",
+    "romaji": "wo",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-n",
+    "glyph": "ん",
+    "romaji": "n",
+    "script": "hiragana",
+    "group": "base"
+  },
+  {
+    "id": "k-n",
+    "glyph": "ン",
+    "romaji": "n",
+    "script": "katakana",
+    "group": "base"
+  },
+  {
+    "id": "h-ga",
+    "glyph": "が",
+    "romaji": "ga",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-ga",
+    "glyph": "ガ",
+    "romaji": "ga",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-gi",
+    "glyph": "ぎ",
+    "romaji": "gi",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-gi",
+    "glyph": "ギ",
+    "romaji": "gi",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-gu",
+    "glyph": "ぐ",
+    "romaji": "gu",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-gu",
+    "glyph": "グ",
+    "romaji": "gu",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-ge",
+    "glyph": "げ",
+    "romaji": "ge",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-ge",
+    "glyph": "ゲ",
+    "romaji": "ge",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-go",
+    "glyph": "ご",
+    "romaji": "go",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-go",
+    "glyph": "ゴ",
+    "romaji": "go",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-za",
+    "glyph": "ざ",
+    "romaji": "za",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-za",
+    "glyph": "ザ",
+    "romaji": "za",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-ji-s",
+    "glyph": "じ",
+    "romaji": "ji",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-ji-s",
+    "glyph": "ジ",
+    "romaji": "ji",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-zu-s",
+    "glyph": "ず",
+    "romaji": "zu",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-zu-s",
+    "glyph": "ズ",
+    "romaji": "zu",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-ze",
+    "glyph": "ぜ",
+    "romaji": "ze",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-ze",
+    "glyph": "ゼ",
+    "romaji": "ze",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-zo",
+    "glyph": "ぞ",
+    "romaji": "zo",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-zo",
+    "glyph": "ゾ",
+    "romaji": "zo",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-da",
+    "glyph": "だ",
+    "romaji": "da",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-da",
+    "glyph": "ダ",
+    "romaji": "da",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-ji-t",
+    "glyph": "ぢ",
+    "romaji": "ji",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-ji-t",
+    "glyph": "ヂ",
+    "romaji": "ji",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-zu-t",
+    "glyph": "づ",
+    "romaji": "zu",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-zu-t",
+    "glyph": "ヅ",
+    "romaji": "zu",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-de",
+    "glyph": "で",
+    "romaji": "de",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-de",
+    "glyph": "デ",
+    "romaji": "de",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-do",
+    "glyph": "ど",
+    "romaji": "do",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-do",
+    "glyph": "ド",
+    "romaji": "do",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-ba",
+    "glyph": "ば",
+    "romaji": "ba",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-ba",
+    "glyph": "バ",
+    "romaji": "ba",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-bi",
+    "glyph": "び",
+    "romaji": "bi",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-bi",
+    "glyph": "ビ",
+    "romaji": "bi",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-bu",
+    "glyph": "ぶ",
+    "romaji": "bu",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-bu",
+    "glyph": "ブ",
+    "romaji": "bu",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-be",
+    "glyph": "べ",
+    "romaji": "be",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-be",
+    "glyph": "ベ",
+    "romaji": "be",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-bo",
+    "glyph": "ぼ",
+    "romaji": "bo",
+    "script": "hiragana",
+    "group": "dakuten"
+  },
+  {
+    "id": "k-bo",
+    "glyph": "ボ",
+    "romaji": "bo",
+    "script": "katakana",
+    "group": "dakuten"
+  },
+  {
+    "id": "h-pa",
+    "glyph": "ぱ",
+    "romaji": "pa",
+    "script": "hiragana",
+    "group": "handakuten"
+  },
+  {
+    "id": "k-pa",
+    "glyph": "パ",
+    "romaji": "pa",
+    "script": "katakana",
+    "group": "handakuten"
+  },
+  {
+    "id": "h-pi",
+    "glyph": "ぴ",
+    "romaji": "pi",
+    "script": "hiragana",
+    "group": "handakuten"
+  },
+  {
+    "id": "k-pi",
+    "glyph": "ピ",
+    "romaji": "pi",
+    "script": "katakana",
+    "group": "handakuten"
+  },
+  {
+    "id": "h-pu",
+    "glyph": "ぷ",
+    "romaji": "pu",
+    "script": "hiragana",
+    "group": "handakuten"
+  },
+  {
+    "id": "k-pu",
+    "glyph": "プ",
+    "romaji": "pu",
+    "script": "katakana",
+    "group": "handakuten"
+  },
+  {
+    "id": "h-pe",
+    "glyph": "ぺ",
+    "romaji": "pe",
+    "script": "hiragana",
+    "group": "handakuten"
+  },
+  {
+    "id": "k-pe",
+    "glyph": "ペ",
+    "romaji": "pe",
+    "script": "katakana",
+    "group": "handakuten"
+  },
+  {
+    "id": "h-po",
+    "glyph": "ぽ",
+    "romaji": "po",
+    "script": "hiragana",
+    "group": "handakuten"
+  },
+  {
+    "id": "k-po",
+    "glyph": "ポ",
+    "romaji": "po",
+    "script": "katakana",
+    "group": "handakuten"
+  }
+]
