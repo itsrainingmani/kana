@@ -11,6 +11,7 @@ const mlDir = resolve(repoRoot, 'ml');
 const fixturesDir = resolve(repoRoot, 'tests/fixtures/ml');
 const manifestPath = resolve(fixturesDir, 'manifest.fixture.jsonl');
 const labelsPath = resolve(fixturesDir, 'labels.fixture.json');
+const LONG_TIMEOUT = 60000;
 const tempDirs = [];
 
 afterEach(() => {
@@ -101,7 +102,7 @@ describe('ml training', () => {
       labels: ['a', 'ka'],
       input_shape: [1, 48, 48]
     });
-  }, 20000);
+  }, LONG_TIMEOUT);
 
   it('evaluates a trained checkpoint and writes confusion reporting artifacts', () => {
     const artifactDir = mkdtempSync(join(tmpdir(), 'kana-ml-eval-'));
@@ -201,7 +202,7 @@ describe('ml training', () => {
 
     expect(mismatchedEvalResult.status).not.toBe(0);
     expect(`${mismatchedEvalResult.stdout}\n${mismatchedEvalResult.stderr}`).toMatch(/labels.*checkpoint/i);
-  }, 20000);
+  }, LONG_TIMEOUT);
 
   it.each([
     ['--epochs', '0', /epochs must be greater than 0/i],

@@ -37,7 +37,7 @@ describe('ml ETL manifest generation', () => {
           'from dataset import load_manifest',
           `labels_path = Path(${JSON.stringify(join(tempDir, 'labels.txt'))})`,
           `manifest_path = Path(${JSON.stringify(join(tempDir, 'manifest.jsonl'))})`,
-          "labels_path.write_text('a\nka\n', encoding='utf-8')",
+          'labels_path.write_text("a\\nka\\n", encoding="utf-8")',
           "samples = [Path('archive-a.zip_unpacked')]",
           'rows_path = build_manifest([], [{"id": "a", "glyph": "a"}, {"id": "ka", "glyph": "ka"}], manifest_path)[0]',
           'sample_rows = [{"glyph": "ka", "label_id": "ka", "label_index": 1, "image_path": "images/ka-001.png", "source_archive": "archive-a.zip", "split": stable_split("archive-a.zip:images/ka-001.png:ka")}]',

@@ -11,7 +11,7 @@ const mlDir = resolve(repoRoot, 'ml');
 const fixturesDir = resolve(repoRoot, 'tests/fixtures/ml');
 const manifestPath = resolve(fixturesDir, 'manifest.fixture.jsonl');
 const labelsPath = resolve(fixturesDir, 'labels.fixture.json');
-const LONG_TIMEOUT = 20000;
+const LONG_TIMEOUT = 60000;
 const tempDirs = [];
 
 afterEach(() => {

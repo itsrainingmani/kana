@@ -345,6 +345,7 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
     modeLabel: root.querySelector('[data-slot="mode-label"]'),
     scriptLabel: root.querySelector('[data-slot="script-label"]'),
     promptCard: root.querySelector('[data-region="prompt"]'),
+    promptStage: root.querySelector('.prompt-card__stage'),
     promptLabel: root.querySelector('[data-slot="prompt-label"]') ?? root.querySelector('.prompt-card .module-label'),
     promptGlyph: root.querySelector('[data-slot="prompt-glyph"]'),
     promptMeta: root.querySelector('[data-slot="font-label"]'),
@@ -774,6 +775,11 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
   function renderPromptSection(session, prompt, promptFont) {
     const status = feedback ?? typingStatus;
     const promptVisualKey = prompt ? `${session.mode}:${prompt.target.id}:${promptFont.id}` : 'empty';
+    const stageCanvas = elements.promptStage?.querySelector('[data-drawing-pad]');
+
+    if (stageCanvas && session.mode !== 'sound-to-drawing') {
+      stageCanvas.remove();
+    }
 
     if (elements.promptStatus) {
       elements.promptStatus.hidden = false;
@@ -819,14 +825,23 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
       setVisibleState(elements.audioPosterButton, true);
       elements.audioPosterButton.setAttribute('aria-label', 'Replay audio');
     } else if (session.mode === 'sound-to-drawing') {
-      elements.promptCard.dataset.hasAudio = 'true';
+      elements.promptCard.dataset.hasAudio = 'false';
       setText(elements.promptLabel, 'Listen / Draw');
       setText(elements.promptGlyph, '');
       delete elements.promptGlyph.dataset.kanaGroup;
       elements.promptGlyph.className = 'poster-kana';
       setVisibleState(elements.promptGlyph, false);
-      setVisibleState(elements.audioPosterButton, true);
+      setVisibleState(elements.audioPosterButton, false);
       elements.audioPosterButton.setAttribute('aria-label', 'Replay audio');
+
+      if (!elements.promptStage.querySelector('[data-drawing-pad]')) {
+        const canvas = document.createElement('canvas');
+        canvas.className = 'drawing-pad';
+        canvas.dataset.drawingPad = 'true';
+        canvas.width = 320;
+        canvas.height = 320;
+        elements.promptStage.append(canvas);
+      }
     } else {
       elements.promptCard.dataset.hasAudio = 'false';
       setText(elements.promptLabel, 'See / Type');
@@ -889,23 +904,25 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
         })
         .join('');
     } else if (session.mode === 'sound-to-drawing' && prompt) {
+      root.querySelector('[data-region="interaction"]')?.classList.add('interaction-card--drawing');
       elements.interactionBody.innerHTML = `
         <label class="answer-label" data-slot="answer-label">Draw Kana</label>
-        <canvas class="drawing-pad" data-drawing-pad width="320" height="320"></canvas>
         <div class="toolbar-row">
           <button class="brutal-button" data-action="clear-drawing" type="button">Clear</button>
           <button class="brutal-button brutal-button--accent" data-action="submit-drawing" type="button">Check</button>
         </div>
+        <div class="stroke-guide" data-stroke-guide></div>
         <div class="choice-grid" data-choice-grid hidden></div>
       `;
       elements.answerLabel = root.querySelector('[data-slot="answer-label"]');
       elements.answerInput = root.querySelector('[data-answer-input]');
       elements.choiceGrid = root.querySelector('[data-choice-grid]');
-      const canvas = root.querySelector('[data-drawing-pad]');
+      const canvas = elements.promptStage?.querySelector('[data-drawing-pad]');
       if (canvas) {
         drawingPad = createDrawingPad(canvas);
       }
     } else {
+      root.querySelector('[data-region="interaction"]')?.classList.remove('interaction-card--drawing');
       elements.interactionBody.innerHTML = `
         <label class="answer-label" for="kana-answer" data-slot="answer-label">Type Romaji</label>
         <input id="kana-answer" class="answer-input" data-answer-input type="text" autocomplete="off" autocapitalize="none" inputmode="latin" placeholder="ka / shi / tsu" spellcheck="false" />
