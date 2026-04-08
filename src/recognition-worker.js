@@ -172,7 +172,7 @@ function topK(scores, count = 3) {
 
 async function loadOrt() {
   if (!ortModulePromise) {
-    ortModulePromise = import('onnxruntime-web');
+    ortModulePromise = import('/node_modules/onnxruntime-web/dist/ort.all.min.mjs');
   }
 
   return ortModulePromise;
