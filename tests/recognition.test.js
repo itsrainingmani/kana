@@ -33,8 +33,9 @@ describe('recognition', () => {
     expect(result.outcome).toBe('partial');
   });
 
-  it('loads onnxruntime-web from a browser-resolvable path', () => {
-    expect(workerSource).toContain("import('/node_modules/onnxruntime-web/dist/ort.all.min.mjs')");
+  it('uses the vite-resolvable onnxruntime-web/all entry instead of /node_modules browser urls', () => {
+    expect(workerSource).toContain("import('onnxruntime-web/all')");
     expect(workerSource).not.toContain("import('onnxruntime-web')");
+    expect(workerSource).not.toContain('/node_modules/onnxruntime-web/');
   });
 });

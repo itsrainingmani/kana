@@ -4,9 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "serve . -l 4173",
+    "dev": "vite",
     "audio:restore": "node scripts/restore-audio-sources.mjs",
     "audio:build": "node scripts/build-audio-assets.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "vitest run",
     "test:ui": "vitest",
     "test:e2e": "playwright test"
@@ -16,6 +18,7 @@
     "jsdom": "^26.1.0",
     "onnxruntime-web": "^1.22.0",
     "serve": "^14.2.6",
+    "vite": "8.0.3",
     "vitest": "^4.1.2"
   }
 }

@@ -1,8 +1,8 @@
 import { getModelInputShape, rasterizeNormalizedStrokes } from './model-preprocess.js';
 
 const GRID_SIZE = 16;
-const MODEL_PATH = '/public/models/kana-classifier.onnx';
-const LABELS_PATH = '/public/models/kana-labels.json';
+const MODEL_PATH = '/models/kana-classifier.onnx';
+const LABELS_PATH = '/models/kana-labels.json';
 let ortModulePromise = null;
 let sessionPromise = null;
 let labelsPromise = null;
@@ -172,7 +172,7 @@ function topK(scores, count = 3) {
 
 async function loadOrt() {
   if (!ortModulePromise) {
-    ortModulePromise = import('/node_modules/onnxruntime-web/dist/ort.all.min.mjs');
+    ortModulePromise = import('onnxruntime-web/all');
   }
 
   return ortModulePromise;
