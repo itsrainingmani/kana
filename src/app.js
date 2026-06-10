@@ -1,26 +1,21 @@
 import { createAudioClipMap, playKanaAudio } from './audio.js';
-import { createClassifierClient } from './classifier-client.js';
-import { createDrawingPad } from './drawing.js';
 import { FONT_OPTIONS, KANA_DATA } from './kana-data.js';
 import {
   buildEnabledKanaSet,
   createKanaSelectionMatrices,
   createKanaToSoundPrompt,
   createRotatingFontSequence,
-  createSoundToDrawingPrompt,
   createSoundToKanaPrompt,
   getMasteryLabel,
   gradeKanaToSoundAnswer,
   gradeSoundToKanaAnswer
 } from './prompts.js';
-import { gradeSoundToDrawingAttempt } from './recognition.js';
 import { createProgressStore, createSessionStore } from './storage.js';
 import { WAVEFORM_DATA } from './waveforms.js';
 
 const MODE_LABELS = {
   'kana-to-sound': 'Kana To Sound',
-  'sound-to-kana': 'Sound To Kana',
-  'sound-to-drawing': 'Sound To Drawing'
+  'sound-to-kana': 'Sound To Kana'
 };
 
 const SCRIPT_LABELS = {
@@ -141,10 +136,6 @@ function createPromptForMode(mode, enabledKana) {
 
   if (mode === 'sound-to-kana') {
     return createSoundToKanaPrompt(enabledKana);
-  }
-
-  if (mode === 'sound-to-drawing') {
-    return createSoundToDrawingPrompt(enabledKana);
   }
 
   return createKanaToSoundPrompt(enabledKana);
@@ -339,7 +330,6 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
   const sessionStore = createSessionStore();
   const progressStore = createProgressStore();
   const audioClips = createAudioClipMap(KANA_DATA);
-  const classifierClient = options.classifierClient ?? createClassifierClient();
 
   const elements = {
     modeLabel: root.querySelector('[data-slot="mode-label"]'),
@@ -389,7 +379,6 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
   let waveformProgress = 0;
   let waveformStartedAt = 0;
   let waveformFrame = null;
-  let drawingPad = null;
 
   const scheduleFrame =
     typeof globalThis.requestAnimationFrame === 'function'
@@ -482,9 +471,7 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
     const expectedKind =
       session.mode === 'sound-to-kana'
         ? 'sound-to-kana'
-        : session.mode === 'sound-to-drawing'
-          ? 'sound-to-drawing'
-          : 'kana-to-sound';
+        : 'kana-to-sound';
     const currentStillValid =
       currentPrompt &&
       currentPrompt.kind === expectedKind &&
@@ -686,7 +673,7 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
 
   function autoplayPromptAudio() {
     if (
-      !['sound-to-kana', 'sound-to-drawing'].includes(sessionStore.getState().mode) ||
+      sessionStore.getState().mode !== 'sound-to-kana' ||
       !currentPrompt?.target.audioId ||
       feedback
     ) {
@@ -757,8 +744,7 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
     elements.modeGroup.innerHTML = renderControlButtons(
       [
         { id: 'kana-to-sound', label: MODE_LABELS['kana-to-sound'] },
-        { id: 'sound-to-kana', label: MODE_LABELS['sound-to-kana'] },
-        { id: 'sound-to-drawing', label: MODE_LABELS['sound-to-drawing'] }
+        { id: 'sound-to-kana', label: MODE_LABELS['sound-to-kana'] }
       ],
       [session.mode],
       'mode'
@@ -775,11 +761,6 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
   function renderPromptSection(session, prompt, promptFont) {
     const status = feedback ?? typingStatus;
     const promptVisualKey = prompt ? `${session.mode}:${prompt.target.id}:${promptFont.id}` : 'empty';
-    const stageCanvas = elements.promptStage?.querySelector('[data-drawing-pad]');
-
-    if (stageCanvas && session.mode !== 'sound-to-drawing') {
-      stageCanvas.remove();
-    }
 
     if (elements.promptStatus) {
       elements.promptStatus.hidden = false;
@@ -824,24 +805,6 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
       setVisibleState(elements.promptGlyph, false);
       setVisibleState(elements.audioPosterButton, true);
       elements.audioPosterButton.setAttribute('aria-label', 'Replay audio');
-    } else if (session.mode === 'sound-to-drawing') {
-      elements.promptCard.dataset.hasAudio = 'false';
-      setText(elements.promptLabel, 'Listen / Draw');
-      setText(elements.promptGlyph, '');
-      delete elements.promptGlyph.dataset.kanaGroup;
-      elements.promptGlyph.className = 'poster-kana';
-      setVisibleState(elements.promptGlyph, false);
-      setVisibleState(elements.audioPosterButton, false);
-      elements.audioPosterButton.setAttribute('aria-label', 'Replay audio');
-
-      if (!elements.promptStage.querySelector('[data-drawing-pad]')) {
-        const canvas = document.createElement('canvas');
-        canvas.className = 'drawing-pad';
-        canvas.dataset.drawingPad = 'true';
-        canvas.width = 320;
-        canvas.height = 320;
-        elements.promptStage.append(canvas);
-      }
     } else {
       elements.promptCard.dataset.hasAudio = 'false';
       setText(elements.promptLabel, 'See / Type');
@@ -869,9 +832,6 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
 
   function renderInteraction(session, prompt, promptFont) {
     const promptKey = prompt ? `${session.mode}:${prompt.target.id}:${promptFont.id}` : 'empty';
-
-    drawingPad?.destroy();
-    drawingPad = null;
 
     if (session.mode === 'sound-to-kana' && prompt) {
       setText(elements.answerLabel, 'Choose Kana');
@@ -903,26 +863,11 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
           `;
         })
         .join('');
-    } else if (session.mode === 'sound-to-drawing' && prompt) {
-      root.querySelector('[data-region="interaction"]')?.classList.add('interaction-card--drawing');
-      elements.interactionBody.innerHTML = `
-        <label class="answer-label" data-slot="answer-label">Draw Kana</label>
-        <div class="toolbar-row">
-          <button class="brutal-button" data-action="clear-drawing" type="button">Clear</button>
-          <button class="brutal-button brutal-button--accent" data-action="submit-drawing" type="button">Check</button>
-        </div>
-        <div class="stroke-guide" data-stroke-guide></div>
-        <div class="choice-grid" data-choice-grid hidden></div>
-      `;
-      elements.answerLabel = root.querySelector('[data-slot="answer-label"]');
-      elements.answerInput = root.querySelector('[data-answer-input]');
-      elements.choiceGrid = root.querySelector('[data-choice-grid]');
-      const canvas = elements.promptStage?.querySelector('[data-drawing-pad]');
-      if (canvas) {
-        drawingPad = createDrawingPad(canvas);
-      }
     } else {
-      root.querySelector('[data-region="interaction"]')?.classList.remove('interaction-card--drawing');
+      const interactionRegion = root.querySelector('[data-region="interaction"]');
+      if (interactionRegion) {
+        interactionRegion.className = 'interaction-card';
+      }
       elements.interactionBody.innerHTML = `
         <label class="answer-label" for="kana-answer" data-slot="answer-label">Type Romaji</label>
         <input id="kana-answer" class="answer-input" data-answer-input type="text" autocomplete="off" autocapitalize="none" inputmode="latin" placeholder="ka / shi / tsu" spellcheck="false" />
@@ -1015,9 +960,6 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
 
     if (button.dataset.mode) {
       sessionStore.setState({ mode: button.dataset.mode });
-      if (button.dataset.mode === 'sound-to-drawing') {
-        classifierClient.warmup();
-      }
       setPrompt();
       render();
       autoplayPromptAudio();
@@ -1099,53 +1041,8 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
 
     if (button.dataset.action === 'play-sound') {
       await handleAudioPrompt(currentPrompt?.target.audioId, {
-        animatePrompt: ['sound-to-kana', 'sound-to-drawing'].includes(sessionStore.getState().mode)
+        animatePrompt: sessionStore.getState().mode === 'sound-to-kana'
       });
-      return;
-    }
-
-    if (button.dataset.action === 'clear-drawing') {
-      drawingPad?.clear();
-      return;
-    }
-
-    if (button.dataset.action === 'submit-drawing' && currentPrompt?.kind === 'sound-to-drawing' && !feedback) {
-      const strokes = drawingPad?.getNormalizedStrokes() ?? [];
-      const recognition = await classifierClient.classify({
-        promptId: currentPrompt.promptId,
-        strokes,
-        candidates: getEnabledKana().filter((kana) => kana.script === 'hiragana' && Array.isArray(kana.strokes))
-      });
-
-      if (recognition.ignored) {
-        return;
-      }
-
-      const result = gradeSoundToDrawingAttempt({
-        recognition,
-        expected: currentPrompt.target,
-        strokes
-      });
-
-      if (!result.correct) {
-        currentPrompt = {
-          ...currentPrompt,
-          attemptCount: currentPrompt.attemptCount + 1,
-          revealedRomaji: true
-        };
-      }
-
-      recordOutcome(result.outcome);
-      feedback = {
-        outcome: result.outcome,
-        message: result.message,
-        answer: currentPrompt.revealedRomaji || !result.correct ? currentPrompt.target.romaji : ''
-      };
-      render();
-
-      if (result.correct) {
-        scheduleAdvance(900);
-      }
       return;
     }
 
@@ -1166,9 +1063,6 @@ export function createApp(root = document.querySelector('#app'), options = {}) {
     sessionStore,
     progressStore,
     render,
-    nextPrompt: setPrompt,
-    setDrawingSubmissionForTest(strokes) {
-      drawingPad?.setStrokesForTest(strokes);
-    }
+    nextPrompt: setPrompt
   };
 }

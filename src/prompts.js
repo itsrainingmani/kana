@@ -165,24 +165,6 @@ export function createSoundToKanaPrompt(kanaData, random = Math.random) {
   };
 }
 
-export function createSoundToDrawingPrompt(kanaData, random = Math.random) {
-  const drawableHiragana = kanaData.filter(
-    (kana) => kana.script === 'hiragana' && Array.isArray(kana.strokes)
-  );
-
-  if (drawableHiragana.length === 0) {
-    return null;
-  }
-
-  return {
-    kind: 'sound-to-drawing',
-    target: pickOne(drawableHiragana, random),
-    attemptCount: 0,
-    revealedRomaji: false,
-    promptId: `${Date.now()}-${Math.floor(random() * 1_000_000)}`
-  };
-}
-
 export function createReferenceSections(kanaData) {
   return ['hiragana', 'katakana']
     .map((script) => {

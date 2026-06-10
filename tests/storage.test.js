@@ -26,7 +26,7 @@ describe('storage', () => {
     const store = createSessionStore();
 
     store.setState({
-      mode: 'sound-to-drawing',
+      mode: 'sound-to-kana',
       selectedRows: {
         ...defaultSelections,
         'hiragana:core': ['vowels', 'k', 'g'],
@@ -37,7 +37,7 @@ describe('storage', () => {
 
     const restored = createSessionStore();
     expect(restored.getState()).toMatchObject({
-      mode: 'sound-to-drawing',
+      mode: 'sound-to-kana',
       selectedRows: {
         ...defaultSelections,
         'hiragana:core': ['vowels', 'k', 'g'],
@@ -66,13 +66,11 @@ describe('storage', () => {
 
     progress.record('h-a', 'kana-to-sound', 'correct');
     progress.record('h-a', 'sound-to-kana', 'assisted');
-    progress.record('h-a', 'sound-to-drawing', 'partial');
 
     expect(progress.getKanaStats('h-a')).toMatchObject({
-      attempts: 3,
+      attempts: 2,
       correct: 1,
-      assisted: 1,
-      partial: 1
+      assisted: 1
     });
   });
 

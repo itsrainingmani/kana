@@ -8,6 +8,8 @@
     "audio:restore": "node scripts/restore-audio-sources.mjs",
     "audio:build": "node scripts/build-audio-assets.mjs",
     "build": "vite build",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:dry-run": "npm run build && wrangler deploy --dry-run",
     "preview": "vite preview",
     "test": "vitest run",
     "test:ui": "vitest",
@@ -16,9 +18,9 @@
   "devDependencies": {
     "@playwright/test": "^1.59.1",
     "jsdom": "^26.1.0",
-    "onnxruntime-web": "^1.22.0",
     "serve": "^14.2.6",
     "vite": "8.0.3",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.2",
+    "wrangler": "^4.99.0"
   }
 }

@@ -1,6 +1,6 @@
 const SESSION_KEY = 'kana-trainer-session';
 const PROGRESS_KEY = 'kana-trainer-progress';
-const ALLOWED_MODES = new Set(['kana-to-sound', 'sound-to-kana', 'sound-to-drawing']);
+const ALLOWED_MODES = new Set(['kana-to-sound', 'sound-to-kana']);
 const ALLOWED_OUTCOMES = new Set(['correct', 'incorrect', 'assisted', 'partial']);
 const DEFAULT_FONTS = ['gothic', 'mincho', 'rounded', 'magic', 'dot'];
 const DEFAULT_BASE_ROWS = ['vowels', 'k', 's', 't', 'n', 'h', 'm', 'y', 'r', 'w', 'nn'];

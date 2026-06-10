@@ -40,10 +40,14 @@
 
 :root {
   --paper: #f2ece1;
+  --paper-soft: #fbf7ee;
   --ink: #111111;
   --accent: #c82117;
+  --accent-soft: rgba(200, 33, 23, 0.1);
   --muted: #5d5648;
   --line: #111111;
+  --hairline: rgba(17, 17, 17, 0.16);
+  --focus-ring: rgba(200, 33, 23, 0.24);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --space-2: 0.5rem;
@@ -69,7 +73,9 @@ body,
 
 body {
   margin: 0;
-  background: var(--paper);
+  background:
+    linear-gradient(180deg, var(--paper-soft) 0%, var(--paper) 24rem),
+    var(--paper);
   color: var(--ink);
   font-family: 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
 }
@@ -150,7 +156,7 @@ summary {
 .control-rack {
   display: grid;
   gap: 1px;
-  background: rgba(17, 17, 17, 0.16);
+  background: var(--hairline);
   padding: 1px;
   position: relative;
   z-index: 1;
@@ -160,14 +166,14 @@ summary {
 .mode-rack {
   display: grid;
   gap: 1px;
-  background: rgba(17, 17, 17, 0.16);
+  background: var(--hairline);
   padding: 1px;
 }
 
 .control-strip {
   display: grid;
   gap: 1px;
-  background: rgba(17, 17, 17, 0.16);
+  background: var(--hairline);
 }
 
 .control-card {
@@ -214,6 +220,7 @@ summary {
   align-items: center;
   min-height: calc(var(--prompt-stage-height) + (2 * var(--space-4)));
   transition:
+    background-color 180ms var(--ease-out),
     border-color 180ms var(--ease-out),
     box-shadow 180ms var(--ease-out);
 }
@@ -247,11 +254,6 @@ summary {
 .poster-kana,
 .choice-card span {
   line-height: 0.88;
-}
-
-.prompt-card--drawing {
-  grid-template-rows: auto auto 1fr;
-  gap: var(--space-3);
 }
 
 .poster-kana {
@@ -295,6 +297,10 @@ summary {
   transition:
     transform 140ms var(--ease-out),
     opacity 160ms var(--ease-out);
+}
+
+.audio-poster-button[data-audio-state='playing'] {
+  transform: scale(0.99);
 }
 
 .audio-waveform {
@@ -357,7 +363,7 @@ summary {
   grid-area: stage;
   width: 100%;
   border: 3px solid var(--line);
-  background: var(--paper);
+  background: var(--paper-soft);
   color: var(--ink);
   padding: 0.95rem 1rem;
   min-height: 4.2rem;
@@ -375,7 +381,9 @@ summary {
 .answer-input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  box-shadow:
+    0 0 0 4px var(--focus-ring),
+    inset 0 0 0 1px var(--accent);
 }
 
 .answer-input::placeholder {
@@ -385,6 +393,7 @@ summary {
 
 .answer-input[data-state='incorrect'] {
   border-color: var(--accent);
+  background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
@@ -416,7 +425,7 @@ summary {
 
 .choice-card {
   border: 2px solid var(--line);
-  background: var(--paper);
+  background: var(--paper-soft);
   color: var(--ink);
   min-height: 4.75rem;
   padding: var(--space-3);
@@ -434,25 +443,16 @@ summary {
   background: var(--ink);
   color: var(--paper);
   border-color: var(--ink);
-}
-
-.drawing-pad {
-  grid-area: stage;
-  width: 100%;
-  height: 100%;
-  border: 2px solid var(--line);
-  background:
-    linear-gradient(to right, transparent 49.5%, rgba(17, 17, 17, 0.1) 49.5%, rgba(17, 17, 17, 0.1) 50.5%, transparent 50.5%),
-    linear-gradient(to bottom, transparent 49.5%, rgba(17, 17, 17, 0.1) 49.5%, rgba(17, 17, 17, 0.1) 50.5%, transparent 50.5%),
-    var(--paper);
-  display: block;
-  touch-action: none;
+  box-shadow: 0 0 0 4px rgba(17, 17, 17, 0.1);
 }
 
 .choice-card[data-state='incorrect'] {
   border-color: var(--accent);
   color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--accent-soft);
+  box-shadow:
+    0 0 0 4px var(--focus-ring),
+    inset 0 0 0 1px var(--accent);
 }
 
 .choice-card span {
@@ -501,7 +501,7 @@ summary {
 .brutal-button,
 .font-toggle {
   border: 2px solid var(--line);
-  background: var(--paper);
+  background: var(--paper-soft);
   color: var(--ink);
   padding: 0.72rem 0.88rem;
   text-transform: uppercase;
@@ -514,13 +514,15 @@ summary {
     transform 140ms var(--ease-out),
     background-color 160ms var(--ease-out),
     color 160ms var(--ease-out),
-    border-color 160ms var(--ease-out);
+    border-color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out);
 }
 
 .brutal-button[data-active='true'],
 .font-toggle[data-active='true'] {
   background: var(--ink);
   color: var(--paper);
+  box-shadow: inset 0 -3px 0 0 var(--accent);
 }
 
 .audio-poster-button[data-audio-state='playing'] {
@@ -541,6 +543,7 @@ summary {
 .prompt-card[data-outcome='correct'],
 .prompt-card[data-outcome='assisted'] {
   border-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent-soft), transparent 42%), var(--paper);
 }
 
 .prompt-card[data-outcome='incorrect'] {
@@ -585,12 +588,12 @@ summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1px;
-  background: rgba(17, 17, 17, 0.16);
+  background: var(--hairline);
   padding: 1px;
 }
 
 .stats-strip > div {
-  background: var(--paper);
+  background: var(--paper-soft);
   padding: var(--space-3);
 }
 
@@ -774,7 +777,8 @@ summary {
     transform 140ms var(--ease-out),
     background-color 160ms var(--ease-out),
     color 160ms var(--ease-out),
-    opacity 160ms var(--ease-out);
+    opacity 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out);
   min-height: 0;
 }
 
@@ -854,6 +858,8 @@ summary {
 .brutal-button:active,
 .font-toggle:active,
 .choice-card:active,
+.reference-column-toggle:active,
+.reference-link-action:active,
 .reference-glyph:active {
   transform: scale(0.985);
 }
@@ -874,6 +880,11 @@ summary {
 .reference-glyph:focus-visible {
   outline: none;
   border-color: var(--accent);
+}
+
+.reference-column-toggle:focus-visible,
+.reference-link-action:focus-visible {
+  box-shadow: 0 2px 0 0 var(--accent);
 }
 
 .choice-card:hover,
@@ -902,6 +913,12 @@ summary {
 .choice-card:disabled,
 .audio-poster-button:disabled {
   opacity: 1;
+}
+
+.choice-card:disabled:active,
+.brutal-button:disabled:active,
+.audio-poster-button:disabled:active {
+  transform: none;
 }
 
 @keyframes prompt-refresh {

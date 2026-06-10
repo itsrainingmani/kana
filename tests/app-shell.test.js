@@ -167,7 +167,7 @@ describe('app shell', () => {
     expect(document.querySelector('[data-region="prompt"]')?.getAttribute('data-has-audio')).toBe('false');
   });
 
-  it('keeps drawing mode and the old setup section out of the v1 controls', () => {
+  it('keeps removed drawing mode and the old setup section out of the v1 controls', () => {
     createApp(document.querySelector('#app'));
 
     const modeButtons = [...document.querySelectorAll('[data-mode]')].map((button) =>
@@ -176,42 +176,9 @@ describe('app shell', () => {
 
     expect(modeButtons).toContain('kana to sound');
     expect(modeButtons).toContain('sound to kana');
-    expect(modeButtons).toContain('sound to drawing');
+    expect(modeButtons).not.toContain('sound to drawing');
     expect(document.querySelector('[data-script-group]')).toBeNull();
     expect(document.querySelector('[data-group-group]')).toBeNull();
-  });
-
-  it('renders sound-to-drawing with drawing controls and no visible clue initially', () => {
-    createApp(document.querySelector('#app'), {
-      classifierClient: {
-        classify: () => Promise.resolve({ matches: [] }),
-        warmup: () => {}
-      }
-    });
-
-    document.querySelector('[data-mode="sound-to-drawing"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
-    expect(document.querySelector('[data-drawing-pad]')).toBeTruthy();
-    expect(document.querySelector('[data-action="submit-drawing"]')).toBeTruthy();
-    expect(document.querySelector('[data-slot="prompt-glyph"]')?.textContent?.trim()).toBe('');
-  });
-
-  it('reveals romaji after the first failed sound-to-drawing attempt', async () => {
-    const app = createApp(document.querySelector('#app'), {
-      classifierClient: {
-        classify: () => Promise.resolve({ matches: [{ glyph: 'い', confidence: 0.8 }] }),
-        warmup: () => {}
-      }
-    });
-
-    document.querySelector('[data-mode="sound-to-drawing"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    app.setDrawingSubmissionForTest([[[0.1, 0.1], [0.9, 0.9]]]);
-
-    document.querySelector('[data-action="submit-drawing"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(document.querySelector('[data-slot="status-answer"]')?.textContent?.toLowerCase()).not.toBe('');
   });
 
   it('keeps kana-to-sound on the same prompt until the exact answer is typed', () => {

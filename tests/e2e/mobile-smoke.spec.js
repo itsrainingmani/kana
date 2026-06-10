@@ -25,7 +25,7 @@ test('cycles through the main training modes on mobile', async ({ page }) => {
   const readColumns = async (selector) =>
     page.locator(selector).evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length);
 
-  await expect(page.locator('[data-mode-group] > button')).toHaveCount(3);
+  await expect(page.locator('[data-mode-group] > button')).toHaveCount(2);
   await expect(page.locator('[data-font-group] > button')).toHaveCount(5);
   expect(await readColumns('[data-mode-group]')).toBeGreaterThanOrEqual(2);
   expect(await readColumns('[data-font-group]')).toBe(5);
@@ -39,11 +39,6 @@ test('cycles through the main training modes on mobile', async ({ page }) => {
 
   await page.locator('.choice-card').first().click();
   await expect(page.locator('[data-region="prompt"]')).toContainText(/correct|answer|expected/i);
-
-  await page.locator('[data-mode="sound-to-drawing"]').dispatchEvent('click');
-  await expect(page.locator('[data-drawing-pad]')).toBeVisible();
-  await expect(page.locator('[data-action="submit-drawing"]')).toBeVisible();
-  await expect(page.locator('.audio-poster-button')).toHaveAttribute('data-visible', 'true');
 
   await expect(page.locator('[data-kana-sheet="hiragana"]')).toBeVisible();
   await expect(page.locator('[data-kana-sheet="katakana"]')).toBeVisible();

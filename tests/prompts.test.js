@@ -7,7 +7,6 @@ import {
   createKanaToSoundPrompt,
   createReferenceSections,
   createRotatingFontSequence,
-  createSoundToDrawingPrompt,
   createSoundToKanaPrompt,
   gradeKanaToSoundAnswer,
   gradeSoundToKanaAnswer
@@ -36,25 +35,6 @@ describe('prompts', () => {
     expect(prompt.kind).toBe('sound-to-kana');
     expect(prompt.options.length).toBe(6);
     expect(prompt.options.some((option) => option.id === prompt.target.id)).toBe(true);
-  });
-
-  it('creates a hiragana-only sound-to-drawing prompt with hidden romaji by default', () => {
-    const mixedKana = buildEnabledKanaSet(KANA_DATA, {
-      selectedRows: {
-        'hiragana:core': ['vowels', 'k'],
-        'hiragana:combination': [],
-        'katakana:core': ['vowels', 'k'],
-        'katakana:combination': []
-      }
-    });
-
-    const prompt = createSoundToDrawingPrompt(mixedKana, () => 0);
-
-    expect(prompt.kind).toBe('sound-to-drawing');
-    expect(prompt.target.script).toBe('hiragana');
-    expect(prompt.revealedRomaji).toBe(false);
-    expect(prompt.attemptCount).toBe(0);
-    expect(prompt.promptId).toBeTypeOf('string');
   });
 
   it('creates grouped reference sections for the kana sheets', () => {

@@ -46,47 +46,22 @@ describe('app layout', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the drawing canvas in the prompt region only', () => {
+  it('falls back from removed drawing sessions to the regular kana prompt', () => {
     localStorage.setItem(
       'kana-trainer-session',
       JSON.stringify({ mode: 'sound-to-drawing' })
     );
 
-    createApp(document.querySelector('#app'), {
-      classifierClient: { warmup: vi.fn(), classify: vi.fn(async () => ({ ignored: true })) }
-    });
+    createApp(document.querySelector('#app'));
 
-    const promptRegion = document.querySelector('[data-region="prompt"]');
-    const interactionRegion = document.querySelector('[data-region="interaction"]');
-
-    expect(promptRegion?.querySelector('[data-drawing-pad]')).toBeTruthy();
-    expect(interactionRegion?.querySelector('[data-drawing-pad]')).toBeNull();
-    expect(interactionRegion?.querySelector('[data-action="clear-drawing"]')).toBeTruthy();
-    expect(interactionRegion?.querySelector('[data-action="submit-drawing"]')).toBeTruthy();
-    expect(interactionRegion?.querySelector('[data-stroke-guide]')).toBeTruthy();
+    expect(document.querySelector('[data-slot="mode-label"]')?.textContent).toBe('Kana To Sound');
+    expect(document.querySelector('[data-drawing-pad]')).toBeNull();
+    expect(document.querySelector('[data-action="submit-drawing"]')).toBeNull();
   });
 
-  it('keeps drawing actions in the interaction region after the canvas moves', () => {
-    localStorage.setItem(
-      'kana-trainer-session',
-      JSON.stringify({ mode: 'sound-to-drawing' })
-    );
-
-    createApp(document.querySelector('#app'), {
-      classifierClient: { warmup: vi.fn(), classify: vi.fn(async () => ({ ignored: true })) }
-    });
-
-    const interactionRegion = document.querySelector('[data-region="interaction"]');
-
-    expect(interactionRegion?.classList.contains('interaction-card--drawing')).toBe(true);
-    expect(interactionRegion?.querySelector('[data-action="clear-drawing"]')).toBeTruthy();
-    expect(interactionRegion?.querySelector('[data-action="submit-drawing"]')).toBeTruthy();
-    expect(interactionRegion?.querySelector('[data-stroke-guide]')).toBeTruthy();
-  });
-
-  it('uses prompt-card as the shared drawing stage', () => {
+  it('keeps drawing-specific layout classes out of the app shell', () => {
     expect(styles).toMatch(/\.prompt-card\s*\{[\s\S]*min-height:\s*calc\(var\(--prompt-stage-height\) \+ \(2 \* var\(--space-4\)\)\);/s);
-    expect(styles).not.toMatch(/\.prompt-card--drawing\s*\{[^}]*min-height:/s);
-    expect(styles).not.toMatch(/\.drawing-pad\s*\{[^}]*min-height:/s);
+    expect(styles).not.toContain('.prompt-card--drawing');
+    expect(styles).not.toContain('.drawing-pad');
   });
 });
