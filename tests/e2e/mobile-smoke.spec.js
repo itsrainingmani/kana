@@ -13,7 +13,7 @@ test('cycles through the main training modes on mobile', async ({ page }) => {
 
   await expect(page.locator('[data-region="prompt"]')).toBeVisible();
   await expect(page.locator('[data-region="controls"]')).toBeVisible();
-  await expect(page.locator('[data-region="mode-controls"]')).toBeVisible();
+  await expect(page.locator('.poster-mode-picker')).toBeVisible();
   await expect(page.locator('[data-answer-input]')).toBeVisible();
   await expect(page.locator('[data-region="kana-sheets"]')).toBeVisible();
   await expect(page.locator('[data-region="prompt"]')).toHaveAttribute('data-has-audio', 'false');
@@ -83,7 +83,7 @@ test('switches between drill modes without shifting the stacked layout', async (
   const promptCard = page.locator('[data-region="prompt"]');
   const interactionCard = page.locator('[data-region="interaction"]');
   const hintsCard = page.locator('[data-region="hints"]');
-  const modeRack = page.locator('[data-region="mode-controls"]');
+  const modeRack = page.locator('.poster-mode-picker');
   const controlRack = page.locator('[data-region="controls"]');
   const sheets = page.locator('[data-region="kana-sheets"]');
 

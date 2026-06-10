@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 
-const appShell = readFileSync(join(process.cwd(), 'index.html'), 'utf8').match(/<main id="app"[\s\S]*<\/main>/)?.[0] ?? '';
+const appShell = readFileSync(join(process.cwd(), 'index.html'), 'utf8').match(/<main\b[\s\S]*?id="app"[\s\S]*<\/main>/)?.[0] ?? '';
 const styles = readFileSync(join(process.cwd(), 'styles.css'), 'utf8');
 
 describe('app layout', () => {
@@ -54,7 +54,7 @@ describe('app layout', () => {
 
     createApp(document.querySelector('#app'));
 
-    expect(document.querySelector('[data-slot="mode-label"]')?.textContent).toBe('Kana To Sound');
+    expect(document.querySelector('[data-region="prompt"]')?.getAttribute('data-has-audio')).toBe('false');
     expect(document.querySelector('[data-drawing-pad]')).toBeNull();
     expect(document.querySelector('[data-action="submit-drawing"]')).toBeNull();
   });
