@@ -21,8 +21,13 @@ const DEFAULT_SELECTED_ROWS = {
 const DEFAULT_SESSION = {
   mode: 'kana-to-sound',
   selectedRows: DEFAULT_SELECTED_ROWS,
-  enabledFonts: [...DEFAULT_FONTS]
+  enabledFonts: [...DEFAULT_FONTS],
+  streak: 0
 };
+
+function sanitizeStreak(value) {
+  return Number.isInteger(value) && value >= 0 ? value : DEFAULT_SESSION.streak;
+}
 
 function createEmptyStats() {
   return {
@@ -122,7 +127,8 @@ function normalizeSessionState(state = {}) {
     ...state,
     mode,
     selectedRows: migrateLegacySelections(state),
-    enabledFonts: sanitizeStringArray(state.enabledFonts, DEFAULT_SESSION.enabledFonts)
+    enabledFonts: sanitizeStringArray(state.enabledFonts, DEFAULT_SESSION.enabledFonts),
+    streak: sanitizeStreak(state.streak)
   };
 }
 
