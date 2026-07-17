@@ -148,6 +148,29 @@ describe('prompts', () => {
     expect(gradeSoundToKanaAnswer('h-a', 'h-a').correct).toBe(true);
   });
 
+  it('accepts the homophone partner (ji/zu) when audioIds match', () => {
+    // じ (h-ji-s) and ぢ (h-ji-t) share the "ji" recording; same for
+    // ず (h-zu-s) / づ (h-zu-t). The grader must accept both.
+    expect(
+      gradeSoundToKanaAnswer('h-ji-t', 'h-ji-s', {
+        selectedAudioId: 'ji',
+        expectedAudioId: 'ji'
+      }).correct
+    ).toBe(true);
+    expect(
+      gradeSoundToKanaAnswer('h-zu-s', 'h-zu-t', {
+        selectedAudioId: 'zu',
+        expectedAudioId: 'zu'
+      }).correct
+    ).toBe(true);
+    expect(
+      gradeSoundToKanaAnswer('h-ka', 'h-a', {
+        selectedAudioId: 'ka',
+        expectedAudioId: 'a'
+      }).correct
+    ).toBe(false);
+  });
+
   it('rotates only across the explicitly selected fonts', () => {
     const sequence = createRotatingFontSequence(
       FONT_OPTIONS,

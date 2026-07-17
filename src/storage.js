@@ -184,6 +184,9 @@ function createMemoryStorage() {
     },
     setItem(key, value) {
       data.set(key, String(value));
+    },
+    removeItem(key) {
+      data.delete(key);
     }
   };
 }

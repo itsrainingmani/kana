@@ -5,9 +5,6 @@ export default defineConfig({
     port: 4173
   },
   preview: {
-    port: 4173,
-  },
-  worker: {
-    format: 'es'
+    port: 4173
   }
 });

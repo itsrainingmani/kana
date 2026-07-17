@@ -9,9 +9,33 @@ import {
   getMasteryLabel,
   gradeKanaToSoundAnswer,
   gradeSoundToKanaAnswer,
+  normalizeRomaji,
 } from "./prompts.js";
 import { createProgressStore, createSessionStore } from "./storage.js";
-import { WAVEFORM_DATA } from "./waveforms.js";
+
+// WAVEFORM_DATA is ~22 KB and is only used by the sound-to-kana waveform
+// render. Defer the import until that mode is first engaged so the initial
+// load for visual drills doesn't pay the cost.
+let waveformData = null;
+let waveformPromise = null;
+
+function ensureWaveformsLoaded() {
+  if (waveformData || waveformPromise) {
+    return waveformPromise ?? Promise.resolve(waveformData);
+  }
+
+  waveformPromise = import("./waveforms.js")
+    .then((module) => {
+      waveformData = module.WAVEFORM_DATA;
+      return waveformData;
+    })
+    .catch(() => {
+      waveformPromise = null;
+      return null;
+    });
+
+  return waveformPromise;
+}
 
 const MODE_LABELS = {
   "kana-to-sound": "Visual",
@@ -170,10 +194,6 @@ function setSheetRows(selectedRows, sheetKey, rowIds) {
     ...selectedRows,
     [sheetKey]: [...rowIds],
   };
-}
-
-function normalizeRomaji(value) {
-  return value.trim().toLowerCase();
 }
 
 function classifyTypedAnswer(value, expected) {
@@ -396,6 +416,12 @@ function setVisibleState(element, visible) {
   element.hidden = false;
   element.dataset.visible = visible ? "true" : "false";
   element.setAttribute("aria-hidden", visible ? "false" : "true");
+
+  // CSS hides non-applicable inputs/buttons via `visibility:hidden`, but
+  // tab focus still reaches them unless we mark them `disabled`.
+  if (element instanceof HTMLInputElement || element instanceof HTMLButtonElement) {
+    element.disabled = !visible;
+  }
 }
 
 function setText(element, value) {
@@ -731,7 +757,22 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
       return;
     }
 
-    const waveform = WAVEFORM_DATA[prompt.target.audioId];
+    // WAVEFORM_DATA is loaded on demand. The first time we hit the aural
+    // path, we kick off the dynamic import; once it resolves we re-render
+    // so the bars appear without any further user action.
+    if (!waveformData) {
+      ensureWaveformsLoaded().then((data) => {
+        if (data && currentPrompt) {
+          renderWaveform(currentPrompt);
+        }
+      });
+      activeWaveformBars = [];
+      activeWaveformKey = null;
+      drawWaveform(0);
+      return;
+    }
+
+    const waveform = waveformData[prompt.target.audioId];
 
     if (!waveform) {
       activeWaveformBars = [];
@@ -987,9 +1028,20 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
           let choiceState = "idle";
 
           if (feedback) {
-            if (option.id === prompt.target.id) {
+            const isTargetChoice = option.id === prompt.target.id;
+            const isSelectedChoice = option.id === selectedChoiceId;
+            // Allow homophone partners (じ/ぢ, ず/づ) to also glow "correct"
+            // when the user picked the alternative glyph that shares the
+            // same recording. The grader already accepts these as correct.
+            const isHomophoneChoice =
+              isSelectedChoice &&
+              !isTargetChoice &&
+              Boolean(prompt.target.audioId) &&
+              option.audioId === prompt.target.audioId;
+
+            if (isTargetChoice || isHomophoneChoice) {
               choiceState = "correct";
-            } else if (option.id === selectedChoiceId) {
+            } else if (isSelectedChoice) {
               choiceState = "incorrect";
             }
           }
@@ -1009,35 +1061,26 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
           `;
         })
         .join("");
-    } else {
-      const interactionRegion = root.querySelector(
-        '[data-region="interaction"]',
-      );
-      if (interactionRegion) {
-        interactionRegion.className = "interaction-card";
-      }
-      elements.interactionBody.innerHTML = `
-        <label class="answer-label" for="kana-answer" data-slot="answer-label">Type the romaji sound</label>
-        <input id="kana-answer" class="answer-input" data-answer-input type="text" autocomplete="off" autocapitalize="none" inputmode="latin" placeholder="ka / shi / tsu" spellcheck="false" />
-        <p class="answer-help" data-slot="answer-help">Use romaji. Examples: shi, chi, tsu.</p>
-        <div class="choice-grid" data-choice-grid hidden></div>
-      `;
-      elements.answerLabel = root.querySelector('[data-slot="answer-label"]');
-      elements.answerInput = root.querySelector("[data-answer-input]");
-      elements.answerHelp = root.querySelector('[data-slot="answer-help"]');
-      elements.choiceGrid = root.querySelector("[data-choice-grid]");
-      elements.answerInput.addEventListener("input", (event) => {
-        resolveKanaTyping(event.currentTarget.value);
-      });
-      setText(elements.answerLabel, "Type the romaji sound");
-      setVisibleState(elements.answerInput, true);
-      setVisibleState(elements.answerHelp, true);
-      setVisibleState(elements.choiceGrid, false);
-      elements.choiceGrid.innerHTML = "";
+      activePromptKey = promptKey;
+      return;
+    }
 
-      if (activePromptKey !== promptKey) {
-        elements.answerInput.value = "";
-      }
+    // kana-to-sound path: keep the authored DOM stable (no per-render
+    // innerHTML rewrite) so the user's typed text, caret, and IME
+    // composition survive every render.
+    setText(elements.answerLabel, "Type the romaji sound");
+    elements.choiceGrid.innerHTML = "";
+    setVisibleState(elements.answerInput, true);
+    setVisibleState(elements.answerHelp, true);
+    setVisibleState(elements.choiceGrid, false);
+
+    if (activePromptKey !== promptKey && elements.answerInput) {
+      elements.answerInput.value = "";
+    }
+    if (elements.answerInput) {
+      // feedback / no-prompt disables the input; setVisibleState above
+      // enabled it, so this is the authoritative disabled-state for the
+      // kana-to-sound interaction.
       elements.answerInput.disabled = Boolean(feedback || !prompt);
       elements.answerInput.dataset.state =
         feedback?.outcome ?? typingStatus?.outcome ?? "pending";
@@ -1205,11 +1248,16 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     if (button.dataset.choice && currentPrompt && !feedback) {
       typingStatus = null;
       selectedChoiceId = button.dataset.choice;
+      const selectedOption = currentPrompt.options.find(
+        (option) => option.id === button.dataset.choice,
+      );
       const result = gradeSoundToKanaAnswer(
         button.dataset.choice,
         currentPrompt.target.id,
         {
           usedHint,
+          selectedAudioId: selectedOption?.audioId,
+          expectedAudioId: currentPrompt.target.audioId,
         },
       );
       recordOutcome(result.outcome);

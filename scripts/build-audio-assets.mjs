@@ -11,7 +11,9 @@ const OPUS_DIR = resolve(AUDIO_DIR, 'opus');
 const MP3_DIR = resolve(AUDIO_DIR, 'mp3');
 const WAVEFORM_MODULE = resolve(ROOT, 'src', 'waveforms.js');
 const SAMPLE_RATE = '8000';
-const WAVEFORM_BUCKETS = 64;
+// Match the bucket count consumed by the canvas render so we can skip the
+// per-prompt resampleWaveform call (see src/app.js) entirely.
+const WAVEFORM_BUCKETS = 100;
 
 function uniqueAudioIds() {
   return [...new Set(KANA_DATA.map((kana) => kana.audioId))].filter(Boolean).sort();

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import { KANA_DATA } from "../src/kana-data.js";
@@ -22,79 +24,10 @@ class MockAudio {
   }
 }
 
-const APP_SCAFFOLD = `
-  <main id="app" class="app-shell" data-enhanced="false">
-    <header class="poster-meta">
-      <div>
-        <p class="poster-kicker">Kana Trainer</p>
-        <h1 class="poster-title">Focused Drill</h1>
-      </div>
-      <div class="poster-sidecar">
-        <p class="poster-slug" data-slot="mode-label">Kana To Sound</p>
-        <p class="poster-slug" data-slot="script-label">Hiragana</p>
-      </div>
-    </header>
-    <section class="drill-stage">
-        <section class="prompt-card" data-region="prompt">
-          <div class="prompt-card__rail">
-            <p class="module-label" data-slot="prompt-label">See / Type</p>
-            <p class="prompt-meta" data-slot="font-label">Gothic</p>
-          </div>
-        <div class="prompt-card__stage">
-          <div class="poster-kana font-gothic" data-slot="prompt-glyph">あ</div>
-          <button class="audio-poster-button" data-action="play-sound" data-audio-state="idle" type="button" hidden>
-            <span class="audio-waveform" data-slot="audio-waveform" aria-hidden="true">
-              <canvas class="audio-waveform__canvas" data-slot="waveform-canvas"></canvas>
-            </span>
-            <span class="sr-only">Replay syllable</span>
-          </button>
-        </div>
-        <div class="prompt-status" data-slot="prompt-status" data-visible="false" aria-hidden="true">
-          <p class="prompt-status__message" data-slot="status-message"></p>
-          <p class="prompt-status__answer" data-slot="status-answer"></p>
-        </div>
-      </section>
-      <section class="interaction-card" data-region="interaction">
-        <div class="interaction-card__body">
-          <label class="answer-label" for="kana-answer" data-slot="answer-label">Type Romaji</label>
-          <input id="kana-answer" class="answer-input" data-answer-input type="text" autocomplete="off" autocapitalize="none" inputmode="latin" placeholder="ka / shi / tsu" spellcheck="false" />
-          <div class="choice-grid" data-choice-grid hidden></div>
-        </div>
-      </section>
-      <section class="hints-card" data-region="hints">
-        <p class="module-label">Hints</p>
-        <div class="hints-card__body" aria-hidden="true"></div>
-        <div class="toolbar-row hints-card__actions">
-          <button class="brutal-button" data-action="play-sound" type="button">Hear</button>
-          <button class="brutal-button" data-action="reveal" type="button">Reveal</button>
-        </div>
-      </section>
-    </section>
-    <section class="mode-rack" data-region="mode-controls">
-      <section class="control-card control-card--mode">
-        <p class="module-label">Mode</p>
-        <div class="toolbar-row" data-mode-group></div>
-      </section>
-    </section>
-    <section class="control-rack" data-region="controls">
-      <div class="control-strip">
-        <section class="control-card control-card--fonts">
-          <p class="module-label">Fonts</p>
-          <div class="font-grid" data-font-group></div>
-        </section>
-      </div>
-      <div class="stats-strip">
-        <div><p class="module-label">Attempts</p><p class="stats-value" data-slot="stats-attempts">0</p></div>
-        <div><p class="module-label">Correct</p><p class="stats-value" data-slot="stats-correct">0</p></div>
-        <div><p class="module-label">Assisted</p><p class="stats-value" data-slot="stats-assisted">0</p></div>
-        <div><p class="module-label">Strong</p><p class="stats-value" data-slot="stats-strong">0</p></div>
-      </div>
-    </section>
-    <section class="kana-sheets" data-region="kana-sheets">
-      <div class="reference-panel__body" data-reference-container></div>
-    </section>
-  </main>
-`;
+const APP_SCAFFOLD =
+  readFileSync(join(process.cwd(), "index.html"), "utf8").match(
+    /<main\b[\s\S]*?id="app"[\s\S]*<\/main>/,
+  )?.[0] ?? "";
 
 describe("app shell", () => {
   beforeEach(() => {
@@ -125,27 +58,23 @@ describe("app shell", () => {
 
     expect(document.querySelector('[data-region="prompt"]')).toBeTruthy();
     expect(document.querySelector('[data-region="controls"]')).toBeTruthy();
-    expect(
-      document.querySelector('[data-region="mode-controls"]'),
-    ).toBeTruthy();
+    expect(document.querySelector("[data-mode-group]")).toBeTruthy();
     expect(document.querySelector('[data-region="interaction"]')).toBeTruthy();
     expect(document.querySelector('[data-region="kana-sheets"]')).toBeTruthy();
     expect(document.querySelector("[data-settings-panel]")).toBeNull();
     expect(document.querySelector("[data-reference-panel]")).toBeNull();
   });
 
-  it("places mode controls below the drill and renders glyph-only font buttons", () => {
+  it("places mode controls in the header above the drill and renders glyph-only font buttons", () => {
     createApp(document.querySelector("#app"));
 
     const drill = document.querySelector(".drill-stage");
-    const modeControls = document.querySelector(
-      '[data-region="mode-controls"]',
-    );
+    const modePicker = document.querySelector("[data-mode-group]");
     const firstFontButton = document.querySelector("[data-font]");
 
     expect(
-      drill?.compareDocumentPosition(modeControls ?? document.body) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      drill?.compareDocumentPosition(modePicker ?? document.body) &
+        Node.DOCUMENT_POSITION_PRECEDING,
     ).toBeTruthy();
     expect(firstFontButton?.textContent?.trim()).toBe("あア");
     expect(firstFontButton?.querySelector("small")).toBeTruthy();
@@ -230,6 +159,37 @@ describe("app shell", () => {
     expect(
       document.querySelector(".prompt-status")?.textContent?.toLowerCase(),
     ).toContain("correct");
+
+    randomSpy.mockRestore();
+  });
+
+  it("keeps the same answer-input element identity across renders in kana-to-sound mode", () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    createApp(document.querySelector("#app"));
+
+    const input = document.querySelector("[data-answer-input]");
+    expect(input).toBeTruthy();
+
+    // Trigger an incorrect evaluation, which forces a re-render. The DOM
+    // node identity must be preserved so the user's caret / IME composition
+    // and active focus survive.
+    input.value = "x";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(document.querySelector("[data-answer-input]")).toBe(input);
+    expect(document.querySelector("[data-answer-input]")?.value).toBe("x");
+
+    // Switching to aural and back must also restore the same node, since
+    // render() runs on every mode toggle.
+    document
+      .querySelector('[data-mode="sound-to-kana"]')
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document
+      .querySelector('[data-mode="kana-to-sound"]')
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(document.querySelector("[data-answer-input]")).toBe(input);
 
     randomSpy.mockRestore();
   });
