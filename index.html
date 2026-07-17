@@ -7,7 +7,7 @@
             name="description"
             content="Kana Trainer — a mobile-first, no-account hiragana and katakana drill app with audio and romaji practice."
         />
-        <meta name="theme-color" content="#f2ece1" />
+        <meta name="theme-color" content="#f1eee7" />
         <link
             rel="icon"
             href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='78' font-size='78' text-anchor='middle' fill='%23c82117'%3E%E3%81%82%3C/text%3E%3C/svg%3E"
@@ -21,6 +21,20 @@
             href="/assets/fonts/noto-sans-jp-kana.woff2"
             crossorigin
         />
+        <link
+            rel="preload"
+            as="font"
+            type="font/woff2"
+            href="/assets/fonts/zen-kaku-gothic-new-700.woff2"
+            crossorigin
+        />
+        <link
+            rel="preload"
+            as="font"
+            type="font/woff2"
+            href="/assets/fonts/ibm-plex-mono-400.woff2"
+            crossorigin
+        />
         <script type="module" src="/src/main.js"></script>
     </head>
     <body>
@@ -30,171 +44,380 @@
             data-enhanced="false"
             translate="no"
         >
-            <header class="poster-meta">
-                <div class="poster-masthead">
-                    <p class="poster-issue">Kana Drill / No. 01</p>
-                    <h1 class="poster-title" lang="ja">行きましょう</h1>
-                    <p class="poster-kicker">Let's goooooo!</p>
-                </div>
-                <div class="poster-sidecar">
-                    <div
-                        class="poster-slug poster-mode-picker"
-                        data-mode-group
-                        aria-label="Practice mode"
-                    ></div>
-                    <p class="poster-slug">
-                        <span>Syllabary</span
-                        ><strong data-slot="script-label">Hiragana</strong>
+            <header class="masthead" data-region="masthead">
+                <div class="masthead__topline">
+                    <p class="masthead__issue">KANA TRAINER · DRILL NO.01</p>
+                    <p class="masthead__chip" data-slot="script-label">
+                        HIRAGANA
                     </p>
                 </div>
-            </header>
-            <section class="drill-stage">
-                <section class="prompt-card" data-region="prompt">
-                    <div class="prompt-card__rail">
-                        <p class="module-label" data-slot="prompt-label">
-                            See, then type
-                        </p>
-                        <p class="prompt-meta" data-slot="font-label">Gothic</p>
+                <div class="masthead__banner">
+                    <div class="masthead__hanko" aria-hidden="true" lang="ja">
+                        か
                     </div>
-                    <div class="prompt-card__stage">
-                        <div
-                            class="poster-kana font-gothic"
-                            data-slot="prompt-glyph"
-                        >
-                            あ
-                        </div>
-                        <button
-                            class="audio-poster-button"
-                            data-action="play-sound"
-                            data-audio-state="idle"
-                            aria-label="Replay syllable audio"
-                            type="button"
+                    <div class="masthead__titles">
+                        <h1 class="masthead__title" lang="ja">行きましょう</h1>
+                        <p class="masthead__subtitle">IKIMASHŌ — LET’S GO</p>
+                    </div>
+                </div>
+                <div class="masthead__rule" aria-hidden="true"></div>
+            </header>
+            <nav
+                class="mode-tabs"
+                aria-label="Practice mode"
+                data-mode-group
+            >
+                <button
+                    class="mode-tab mode-tab--visual"
+                    data-mode="kana-to-sound"
+                    data-active="true"
+                    aria-pressed="true"
+                    type="button"
+                >
+                    <span class="mode-tab__badge" aria-hidden="true">V</span>
+                    <span class="mode-tab__labels">
+                        <span class="mode-tab__jp" lang="ja">みる</span>
+                        <span class="mode-tab__en">Visual</span>
+                    </span>
+                </button>
+                <button
+                    class="mode-tab mode-tab--aural"
+                    data-mode="sound-to-kana"
+                    data-active="false"
+                    aria-pressed="false"
+                    type="button"
+                >
+                    <span class="mode-tab__badge" aria-hidden="true">A</span>
+                    <span class="mode-tab__labels">
+                        <span class="mode-tab__jp" lang="ja">きく</span>
+                        <span class="mode-tab__en">Aural</span>
+                    </span>
+                </button>
+            </nav>
+            <section
+                class="drill-card drill-stage"
+                data-region="prompt"
+                data-outcome=""
+                data-has-audio="false"
+            >
+                <div class="drill-card__rail">
+                    <p class="drill-card__station" data-slot="station-code">
+                        STA. V-01
+                    </p>
+                    <p class="drill-card__rail-right">
+                        <span
+                            class="hint-chip"
+                            data-slot="hint-chip"
                             hidden
+                            >HINT</span
                         >
-                            <span
-                                class="audio-waveform"
-                                data-slot="audio-waveform"
+                        <span data-slot="font-label">FONT · GOTHIC</span>
+                    </p>
+                </div>
+                <div class="drill-card__stage" data-prompt-motion="a">
+                    <div
+                        class="poster-kana font-gothic"
+                        data-slot="prompt-glyph"
+                        lang="ja"
+                    >
+                        あ
+                    </div>
+                    <button
+                        class="audio-poster-button"
+                        data-action="play-sound"
+                        data-audio-state="idle"
+                        aria-label="Replay syllable audio"
+                        type="button"
+                        hidden
+                    >
+                        <span
+                            class="audio-waveform"
+                            data-slot="audio-waveform"
+                            aria-hidden="true"
+                        >
+                            <canvas
+                                class="audio-waveform__canvas"
+                                data-slot="waveform-canvas"
+                            ></canvas>
+                        </span>
+                        <span class="audio-replay-caption">
+                            <svg
+                                class="ui-icon"
                                 aria-hidden="true"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
                             >
-                                <canvas
-                                    class="audio-waveform__canvas"
-                                    data-slot="waveform-canvas"
-                                ></canvas>
-                            </span>
-                            <span class="sr-only">Replay syllable</span>
+                                <path d="M11 5 6 9H2v6h4l5 4V5Z"></path>
+                                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                            </svg>
+                            <span lang="ja">もういちど</span> REPLAY
+                        </span>
+                    </button>
+                    <div
+                        class="drill-card__empty"
+                        data-slot="empty-state"
+                        hidden
+                    >
+                        <p class="drill-card__empty-jp" lang="ja">選択なし</p>
+                        <p class="drill-card__empty-en">NO KANA SELECTED</p>
+                        <button
+                            class="ghost-button"
+                            data-action="goto-sheets"
+                            type="button"
+                        >
+                            CHOOSE ROWS BELOW ↓
                         </button>
                     </div>
                     <div
-                        class="prompt-status"
-                        data-slot="prompt-status"
-                        data-visible="false"
+                        class="maru-stamp"
+                        data-slot="maru-stamp"
                         aria-hidden="true"
+                        hidden
                     >
-                        <p
-                            class="prompt-status__message"
-                            data-slot="status-message"
-                        ></p>
-                        <p
-                            class="prompt-status__answer"
-                            data-slot="status-answer"
-                        ></p>
+                        <svg
+                            viewBox="0 0 100 100"
+                            fill="none"
+                            aria-hidden="true"
+                        >
+                            <circle
+                                cx="50"
+                                cy="50"
+                                r="43"
+                                stroke="#c82117"
+                                stroke-width="4.5"
+                                opacity="0.85"
+                            ></circle>
+                        </svg>
                     </div>
-                </section>
-                <section class="interaction-card" data-region="interaction">
+                </div>
+                <div
+                    class="prompt-status"
+                    data-slot="prompt-status"
+                    data-visible="false"
+                    aria-hidden="true"
+                >
+                    <p
+                        class="prompt-status__message"
+                        data-slot="status-message"
+                    >
+                        <span
+                            class="prompt-status__jp"
+                            lang="ja"
+                            data-slot="status-jp"
+                        ></span>
+                        <span
+                            class="prompt-status__en"
+                            data-slot="status-en"
+                        ></span>
+                    </p>
+                    <p
+                        class="prompt-status__answer"
+                        data-slot="status-answer"
+                    ></p>
+                </div>
+                <div class="answer-block" data-region="interaction">
                     <div class="interaction-card__body">
-                        <label
-                            class="answer-label"
-                            for="kana-answer"
-                            data-slot="answer-label"
-                            >Type the romaji sound</label
+                        <div class="answer-typed" data-slot="typed-block">
+                            <label
+                                class="block-label answer-label"
+                                for="kana-answer"
+                                data-slot="answer-label"
+                            >
+                                <span lang="ja">こたえ</span>
+                                <span class="block-label__en"
+                                    >TYPE THE ROMAJI</span
+                                >
+                            </label>
+                            <input
+                                id="kana-answer"
+                                class="answer-input"
+                                data-answer-input
+                                data-shake=""
+                                type="text"
+                                autocomplete="off"
+                                autocapitalize="none"
+                                inputmode="latin"
+                                placeholder="ka / shi / tsu"
+                                spellcheck="false"
+                            />
+                        </div>
+                        <div
+                            class="answer-choices"
+                            data-slot="choices-block"
+                            hidden
                         >
-                        <input
-                            id="kana-answer"
-                            class="answer-input"
-                            data-answer-input
-                            type="text"
-                            autocomplete="off"
-                            autocapitalize="none"
-                            inputmode="latin"
-                            placeholder="ka / shi / tsu"
-                            spellcheck="false"
-                        />
-                        <p class="answer-help" data-slot="answer-help">
-                            Use romaji. Examples: shi, chi, tsu.
-                        </p>
-                        <div class="choice-grid" data-choice-grid hidden></div>
+                            <p class="block-label">
+                                <span lang="ja">えらぶ</span>
+                                <span class="block-label__en"
+                                    >CHOOSE THE KANA</span
+                                >
+                            </p>
+                            <div
+                                class="choice-grid"
+                                data-choice-grid
+                                hidden
+                            ></div>
+                        </div>
                     </div>
-                </section>
-                <section class="hints-card" data-region="hints">
-                    <p class="module-label">Hints</p>
-                    <div class="hints-card__body" aria-hidden="true"></div>
-                    <div class="toolbar-row hints-card__actions">
-                        <button
-                            class="brutal-button"
-                            data-action="play-sound"
-                            type="button"
+                </div>
+                <div class="drill-actions" data-region="hints">
+                    <button
+                        class="action-button"
+                        data-action="play-sound"
+                        type="button"
+                    >
+                        <svg
+                            class="ui-icon"
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
                         >
-                            Hear
-                        </button>
-                        <button
-                            class="brutal-button"
-                            data-action="reveal"
-                            aria-label="Reveal answer"
-                            type="button"
+                            <path d="M11 5 6 9H2v6h4l5 4V5Z"></path>
+                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                        <span lang="ja">きく</span> HEAR
+                    </button>
+                    <button
+                        class="action-button"
+                        data-action="reveal"
+                        aria-label="Reveal answer"
+                        type="button"
+                    >
+                        <svg
+                            class="ui-icon"
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
                         >
-                            Reveal
-                        </button>
-                    </div>
-                </section>
+                            <path
+                                d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"
+                            ></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        <span lang="ja">みせて</span> REVEAL
+                    </button>
+                </div>
+                <button
+                    class="next-button"
+                    data-action="next"
+                    type="button"
+                    hidden
+                >
+                    <span lang="ja">つぎへ</span>
+                    <span class="next-button__meta">NEXT · ENTER ⏎</span>
+                    <span aria-hidden="true">→</span>
+                </button>
             </section>
-            <section class="control-rack" data-region="controls">
-                <div class="control-strip">
-                    <section class="control-card control-card--fonts">
-                        <p class="module-label">Fonts</p>
-                        <div class="font-grid" data-font-group></div>
-                    </section>
+            <section class="record-strip" data-region="controls">
+                <div class="strip-head">
+                    <p class="block-label">
+                        <span lang="ja">きろく</span>
+                        <span class="block-label__en">RECORD</span>
+                    </p>
+                    <p
+                        class="streak-chip"
+                        data-slot="streak"
+                        data-active="false"
+                    >
+                        <span lang="ja">連続</span> STREAK ×<span
+                            data-slot="streak-count"
+                            >0</span
+                        >
+                    </p>
                 </div>
                 <div class="stats-strip">
-                    <div>
-                        <p class="module-label">Attempts</p>
+                    <div class="stats-cell">
                         <p class="stats-value" data-slot="stats-attempts">0</p>
+                        <p class="stats-label">
+                            <span lang="ja">挑戦</span>
+                            <span class="stats-label__en">ATTEMPTS</span>
+                        </p>
                     </div>
-                    <div>
-                        <p class="module-label">Correct</p>
+                    <div class="stats-cell">
                         <p class="stats-value" data-slot="stats-correct">0</p>
+                        <p class="stats-label">
+                            <span lang="ja">正解</span>
+                            <span class="stats-label__en">CORRECT</span>
+                        </p>
                     </div>
-                    <div>
-                        <p class="module-label">Assisted</p>
+                    <div class="stats-cell">
                         <p class="stats-value" data-slot="stats-assisted">0</p>
+                        <p class="stats-label">
+                            <span lang="ja">補助</span>
+                            <span class="stats-label__en">ASSISTED</span>
+                        </p>
                     </div>
-                    <div>
-                        <p class="module-label">Strong</p>
+                    <div class="stats-cell">
                         <p class="stats-value" data-slot="stats-strong">0</p>
+                        <p class="stats-label">
+                            <span lang="ja">定着</span>
+                            <span class="stats-label__en">STRONG</span>
+                        </p>
                     </div>
                 </div>
             </section>
+            <section class="fonts-strip" data-region="fonts">
+                <div class="strip-head">
+                    <p class="block-label">
+                        <span lang="ja">しょたい</span>
+                        <span class="block-label__en">TYPEFACES</span>
+                    </p>
+                    <p class="strip-note">ROTATES EACH PROMPT</p>
+                </div>
+                <div class="font-grid" data-font-group></div>
+            </section>
             <section class="kana-sheets" data-region="kana-sheets">
-                <div class="reference-panel__body" data-reference-container>
-                    <section class="reference-table">
-                        <div class="section-heading">
-                            <p class="module-label">Kana Sheets</p>
-                            <h3>Charts Need JavaScript</h3>
+                <div class="sheets-head">
+                    <p class="sheets-title">
+                        <span class="sheets-title__jp" lang="ja">五十音</span>
+                        <span class="sheets-title__en"
+                            >GOJŪON · STUDY SHEETS</span
+                        >
+                    </p>
+                    <p class="sheets-guide">
+                        TAP A COLUMN HEADER TO ADD IT TO THE DRILL · TAP ANY
+                        KANA TO HEAR IT
+                    </p>
+                </div>
+                <div
+                    class="reference-panel__body"
+                    data-reference-container
+                >
+                    <section class="kana-sheet kana-sheet--placeholder">
+                        <div class="kana-sheet__head">
+                            <p class="block-label">
+                                <span>CHARTS NEED JAVASCRIPT</span>
+                            </p>
                         </div>
-                        <p class="poster-copy">
-                            Enable JavaScript for drill controls, audio, and row
-                            selection in the chart.
+                        <p class="sheets-guide">
+                            ENABLE JAVASCRIPT FOR DRILL CONTROLS, AUDIO, AND
+                            ROW SELECTION IN THE CHART.
                         </p>
                     </section>
                 </div>
             </section>
+            <p class="app-footer" data-region="footer">
+                <span lang="ja">保存済み</span> · PROGRESS SAVED ON THIS DEVICE
+            </p>
         </main>
         <noscript>
-            <section class="reference-table">
-                <div class="section-heading">
-                    <p class="module-label">Notice</p>
-                    <h3>JavaScript Required</h3>
-                </div>
-                <p class="poster-copy">
+            <section class="noscript-note">
+                <p class="block-label"><span>NOTICE</span></p>
+                <h3>JavaScript Required</h3>
+                <p>
                     Kana Trainer needs JavaScript enabled for the drills,
                     audio clips, and saved progress.
                 </p>

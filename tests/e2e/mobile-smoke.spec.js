@@ -8,20 +8,20 @@ const GLYPH_TO_ROMAJI = new Map(
   ])
 );
 
-test('cycles through the main training modes on mobile', async ({ page }) => {
+test('cycles through the main training modes', async ({ page }) => {
   await page.goto('/');
 
+  await expect(page.locator('.masthead__title')).toBeVisible();
   await expect(page.locator('[data-region="prompt"]')).toBeVisible();
-  await expect(page.locator('[data-region="controls"]')).toBeVisible();
-  await expect(page.locator('.poster-mode-picker')).toBeVisible();
+  await expect(page.locator('[data-mode-group]')).toBeVisible();
   await expect(page.locator('[data-answer-input]')).toBeVisible();
   await expect(page.locator('[data-region="kana-sheets"]')).toBeVisible();
   await expect(page.locator('[data-region="prompt"]')).toHaveAttribute('data-has-audio', 'false');
   await expect(page.locator('.audio-poster-button')).toHaveAttribute('data-visible', 'false');
   await expect(page.locator('[data-answer-input]')).toHaveAttribute('data-visible', 'true');
   await expect(page.locator('[data-choice-grid]')).toHaveAttribute('data-visible', 'false');
+  await expect(page.locator('[data-slot="station-code"]')).toContainText('STA. V-01');
 
-  const viewportWidth = page.viewportSize()?.width ?? 0;
   const readColumns = async (selector) =>
     page.locator(selector).evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length);
 
@@ -29,16 +29,20 @@ test('cycles through the main training modes on mobile', async ({ page }) => {
   await expect(page.locator('[data-font-group] > button')).toHaveCount(5);
   expect(await readColumns('[data-mode-group]')).toBeGreaterThanOrEqual(2);
   expect(await readColumns('[data-font-group]')).toBe(5);
-  await expect(page.locator('[data-font]').first()).toHaveText('あア');
+  await expect(page.locator('[data-font] .font-toggle__preview').first()).toHaveText('あア');
+
   await page.locator('[data-mode="sound-to-kana"]').dispatchEvent('click');
   await expect(page.locator('.choice-card').first()).toBeVisible();
   await expect(page.locator('.choice-card')).toHaveCount(6);
   await expect(page.locator('.audio-poster-button')).toHaveAttribute('data-visible', 'true');
-  expect(await readColumns('[data-choice-grid]')).toBe(viewportWidth < 780 ? 2 : 3);
+  await expect(page.locator('[data-slot="station-code"]')).toContainText('STA. A-02');
+  expect(await readColumns('[data-choice-grid]')).toBe(3);
   await expect(page.locator('[data-slot="waveform-canvas"]')).toBeVisible();
+  await expect(page.locator('.audio-replay-caption')).toContainText('REPLAY');
 
   await page.locator('.choice-card').first().click();
-  await expect(page.locator('[data-region="prompt"]')).toContainText(/correct|answer|expected/i);
+  await expect(page.locator('[data-slot="prompt-status"]')).toHaveAttribute('data-visible', 'true');
+  await expect(page.locator('[data-slot="status-message"]')).toContainText(/CORRECT|NOT QUITE/);
 
   await expect(page.locator('[data-kana-sheet="hiragana"]')).toBeVisible();
   await expect(page.locator('[data-kana-sheet="katakana"]')).toBeVisible();
@@ -48,27 +52,33 @@ test('cycles through the main training modes on mobile', async ({ page }) => {
   await expect(page.locator('[data-group-toggle-all="katakana:core"]')).toBeVisible();
 });
 
-test('uses an authored drill shell with explicit prompt and support regions', async ({ page }) => {
+test('uses an authored drill shell with a single merged drill card', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.locator('.prompt-card__rail')).toHaveCount(1);
-  await expect(page.locator('.prompt-card__stage')).toHaveCount(1);
+  await expect(page.locator('.drill-card')).toHaveCount(1);
+  await expect(page.locator('.drill-card__rail')).toHaveCount(1);
+  await expect(page.locator('.drill-card__stage')).toHaveCount(1);
   await expect(page.locator('.interaction-card__body')).toHaveCount(1);
-  await expect(page.locator('.hints-card__actions')).toHaveCount(1);
+  await expect(page.locator('.drill-actions')).toHaveCount(1);
+  await expect(page.locator('[data-action="next"]')).toHaveCount(1);
+
+  // The glyph and the answer field live in the same card — never separated.
+  const cardBox = await page.locator('.drill-card').boundingBox();
+  const inputBox = await page.locator('[data-answer-input]').boundingBox();
+  expect(inputBox.y).toBeGreaterThanOrEqual(cardBox.y);
+  expect(inputBox.y + inputBox.height).toBeLessThanOrEqual(cardBox.y + cardBox.height + 1);
 });
 
-test('keeps the kana position stable when status text appears', async ({ page }) => {
+test('keeps the kana position stable when typing feedback appears', async ({ page }) => {
   await page.goto('/');
 
   const prompt = page.locator('.poster-kana');
-  const glyph = (await prompt.textContent())?.trim() ?? '';
-  const romaji = GLYPH_TO_ROMAJI.get(glyph);
-
-  expect(romaji).toBeTruthy();
-
   const beforeBox = await prompt.boundingBox();
-  await page.locator('[data-answer-input]').fill(romaji);
+
+  // "x" is never a valid romaji prefix, so this always trips the retype state.
+  await page.locator('[data-answer-input]').fill('x');
   await expect(page.locator('[data-slot="prompt-status"]')).toHaveAttribute('data-visible', 'true');
+  await expect(page.locator('[data-slot="status-message"]')).toContainText('RETYPE');
 
   const afterBox = await prompt.boundingBox();
 
@@ -76,52 +86,43 @@ test('keeps the kana position stable when status text appears', async ({ page })
   expect(beforeBox?.y).toBe(afterBox?.y);
 });
 
-test('switches between drill modes without shifting the stacked layout', async ({ page }) => {
+test('waits for the user after a revealed answer and advances via NEXT', async ({ page }) => {
   await page.goto('/');
-  const viewportWidth = page.viewportSize()?.width ?? 0;
 
-  const promptCard = page.locator('[data-region="prompt"]');
-  const interactionCard = page.locator('[data-region="interaction"]');
-  const hintsCard = page.locator('[data-region="hints"]');
-  const modeRack = page.locator('.poster-mode-picker');
-  const controlRack = page.locator('[data-region="controls"]');
-  const sheets = page.locator('[data-region="kana-sheets"]');
+  await page.locator('[data-action="reveal"]').dispatchEvent('click');
 
-  const before = {
-    prompt: await promptCard.boundingBox(),
-    interaction: await interactionCard.boundingBox(),
-    hints: await hintsCard.boundingBox(),
-    mode: await modeRack.boundingBox(),
-    controls: await controlRack.boundingBox(),
-    sheets: await sheets.boundingBox()
-  };
+  await expect(page.locator('[data-slot="status-message"]')).toContainText('REVEALED');
+  await expect(page.locator('[data-action="next"]')).toBeVisible();
 
-  await page.locator('[data-mode="sound-to-kana"]').dispatchEvent('click');
-  await expect(page.locator('.choice-card')).toHaveCount(6);
+  // Revealed answers never auto-advance.
+  await page.waitForTimeout(1200);
+  await expect(page.locator('[data-slot="station-code"]')).toContainText('STA. V-01');
 
-  const after = {
-    prompt: await promptCard.boundingBox(),
-    interaction: await interactionCard.boundingBox(),
-    hints: await hintsCard.boundingBox(),
-    mode: await modeRack.boundingBox(),
-    controls: await controlRack.boundingBox(),
-    sheets: await sheets.boundingBox()
-  };
-
-  expect(before.prompt?.height).toBe(after.prompt?.height);
-  expect(before.interaction?.height).toBe(after.interaction?.height);
-  expect(before.hints?.height).toBe(after.hints?.height);
-  expect(Math.abs((before.mode?.y ?? 0) - (after.mode?.y ?? 0))).toBeLessThanOrEqual(2);
-  expect(Math.abs((before.controls?.y ?? 0) - (after.controls?.y ?? 0))).toBeLessThanOrEqual(2);
-  expect(Math.abs((before.sheets?.y ?? 0) - (after.sheets?.y ?? 0))).toBeLessThanOrEqual(2);
-
-  if (viewportWidth < 780) {
-    expect(before.prompt?.height ?? 0).toBeLessThanOrEqual(320);
-    expect(before.interaction?.height ?? 0).toBeLessThanOrEqual(220);
-  }
+  await page.locator('[data-action="next"]').click();
+  await expect(page.locator('[data-slot="station-code"]')).toContainText('STA. V-02');
 });
 
-test('keeps the prompt centered and balances the desktop drill columns', async ({ page }) => {
+test('answers a visual prompt correctly and shows the maru stamp', async ({ page }) => {
+  await page.goto('/');
+
+  const glyph = (await page.locator('.poster-kana').textContent())?.trim() ?? '';
+  const romaji = GLYPH_TO_ROMAJI.get(glyph);
+
+  expect(romaji).toBeTruthy();
+
+  await page.locator('[data-answer-input]').fill(romaji);
+
+  await expect(page.locator('[data-slot="status-message"]')).toContainText('CORRECT');
+  await expect(page.locator('[data-slot="maru-stamp"]')).toBeVisible();
+  await expect(page.locator('[data-slot="streak-count"]')).toHaveText('1');
+
+  // Correct answers auto-advance after the delay.
+  await expect(page.locator('[data-slot="station-code"]')).toContainText('STA. V-02', {
+    timeout: 3000
+  });
+});
+
+test('places the study sheets in a right rail on desktop', async ({ page }) => {
   await page.goto('/');
 
   const viewportWidth = page.viewportSize()?.width ?? 0;
@@ -130,63 +131,27 @@ test('keeps the prompt centered and balances the desktop drill columns', async (
     return;
   }
 
-  const promptCard = page.locator('[data-region="prompt"]');
-  const glyph = page.locator('.poster-kana');
-  const interactionCard = page.locator('[data-region="interaction"]');
-  const hintsCard = page.locator('[data-region="hints"]');
+  const drillBox = await page.locator('.drill-card').boundingBox();
+  const sheetsBox = await page.locator('[data-region="kana-sheets"]').boundingBox();
+  const mastheadBox = await page.locator('.masthead').boundingBox();
 
-  const promptBox = await promptCard.boundingBox();
-  const glyphBox = await glyph.boundingBox();
-  const interactionBox = await interactionCard.boundingBox();
-  const hintsBox = await hintsCard.boundingBox();
+  expect(drillBox).toBeTruthy();
+  expect(sheetsBox).toBeTruthy();
 
-  expect(promptBox).toBeTruthy();
-  expect(glyphBox).toBeTruthy();
-  expect(interactionBox).toBeTruthy();
-  expect(hintsBox).toBeTruthy();
-
-  const promptCenterX = promptBox.x + promptBox.width / 2;
-  const glyphCenterX = glyphBox.x + glyphBox.width / 2;
-  const promptCenterY = promptBox.y + promptBox.height / 2;
-  const glyphCenterY = glyphBox.y + glyphBox.height / 2;
-  const promptHeight = promptBox.height;
-  const rightColumnHeight = hintsBox.y + hintsBox.height - interactionBox.y;
-
-  expect(Math.abs(promptCenterX - glyphCenterX)).toBeLessThanOrEqual(8);
-  expect(Math.abs(promptCenterY - glyphCenterY)).toBeLessThanOrEqual(12);
-  expect(Math.abs(promptHeight - rightColumnHeight)).toBeLessThanOrEqual(8);
+  // Sheets sit beside the drill column, starting at the same band as the tabs.
+  expect(sheetsBox.x).toBeGreaterThan(drillBox.x + drillBox.width);
+  expect(mastheadBox.width).toBeGreaterThan(drillBox.width + sheetsBox.width);
 });
 
-test('centers the answer card and anchors hint actions on desktop', async ({ page }) => {
+test('shows an exit from the empty state', async ({ page }) => {
   await page.goto('/');
 
-  const viewportWidth = page.viewportSize()?.width ?? 0;
+  await page.locator('[data-group-toggle-none="hiragana:core"]').dispatchEvent('click');
 
-  if (viewportWidth < 780) {
-    return;
-  }
-
-  const interactionCard = page.locator('[data-region="interaction"]');
-  const answerInput = page.locator('[data-answer-input]');
-  const hintsCard = page.locator('[data-region="hints"]');
-  const hintToolbar = page.locator('[data-region="hints"] .toolbar-row');
-
-  const interactionBox = await interactionCard.boundingBox();
-  const inputBox = await answerInput.boundingBox();
-  const hintsBox = await hintsCard.boundingBox();
-  const toolbarBox = await hintToolbar.boundingBox();
-
-  expect(interactionBox).toBeTruthy();
-  expect(inputBox).toBeTruthy();
-  expect(hintsBox).toBeTruthy();
-  expect(toolbarBox).toBeTruthy();
-
-  const interactionCenterY = interactionBox.y + interactionBox.height / 2;
-  const inputCenterY = inputBox.y + inputBox.height / 2;
-  const hintBottomGap = hintsBox.y + hintsBox.height - (toolbarBox.y + toolbarBox.height);
-
-  expect(Math.abs(interactionCenterY - inputCenterY)).toBeLessThanOrEqual(28);
-  expect(hintBottomGap).toBeLessThanOrEqual(24);
+  await expect(page.locator('[data-slot="empty-state"]')).toBeVisible();
+  await expect(page.locator('[data-slot="script-label"]')).toHaveText('NONE');
+  await expect(page.locator('[data-action="goto-sheets"]')).toBeVisible();
+  await expect(page.locator('[data-answer-input]')).toBeHidden();
 });
 
 test('keeps combination kana horizontal at mobile sizes across prompt, choices, and reference', async ({
@@ -207,7 +172,7 @@ test('keeps combination kana horizontal at mobile sizes across prompt, choices, 
   await page.locator('[data-mode="sound-to-kana"]').dispatchEvent('click');
   await expect(page.locator('.choice-card')).toHaveCount(6);
 
-  const choiceMetrics = await page.locator('.choice-card span').evaluateAll((nodes) =>
+  const choiceMetrics = await page.locator('.choice-card__glyph').evaluateAll((nodes) =>
     nodes.map((node) => {
       const rect = node.getBoundingClientRect();
       return { width: rect.width, height: rect.height };
@@ -221,14 +186,20 @@ test('keeps combination kana horizontal at mobile sizes across prompt, choices, 
   const combinationButtons = page.locator('[data-kana-sheet-matrix="hiragana:combination"] .reference-glyph');
   await expect(combinationButtons.first()).toBeVisible();
 
+  // Reference buttons pad vertically, so compare against a single text line:
+  // a wrapped two-line glyph would roughly double the line-height metric.
   const referenceMetrics = await combinationButtons.evaluateAll((nodes) =>
     nodes.map((node) => {
       const rect = node.getBoundingClientRect();
-      return { width: rect.width, height: rect.height };
+      const styles = getComputedStyle(node);
+      const fontSize = Number.parseFloat(styles.fontSize);
+      const paddingY =
+        Number.parseFloat(styles.paddingTop) + Number.parseFloat(styles.paddingBottom);
+      return { height: rect.height, singleLineMax: fontSize * 1.5 + paddingY };
     })
   );
 
   referenceMetrics.forEach((metric) => {
-    expect(metric.width).toBeGreaterThan(metric.height);
+    expect(metric.height).toBeLessThanOrEqual(metric.singleLineMax);
   });
 });

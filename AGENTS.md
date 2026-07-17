@@ -23,12 +23,16 @@
 - `src/waveforms.js` (~22 KB of pre-bucketed audio peaks) is loaded via a
   dynamic `import()` only the first time the aural mode is entered. Keep
   that path lazy; static imports of it balloon the initial JS payload.
-- The default gothic face is preloaded via `<link rel="preload">` in
-  `index.html` so the first paint doesn't wait on CSS to discover it.
-- `scripts/build-audio-assets.mjs` now produces 100-bucket waveform data
-  to match the canvas renderer's bucket count exactly; rebuilding audio
-  (`npm run audio:restore && npm run audio:build`) lets the runtime skip
-  the upsample step.
+- The default gothic face, Zen Kaku 700, and Plex Mono 400 are preloaded
+  via `<link rel="preload">` in `index.html` so the first paint doesn't
+  wait on CSS to discover them.
+- `scripts/build-audio-assets.mjs` produces 100-bucket waveform data;
+  the canvas renderer downsamples it to `WAVEFORM_BAR_COUNT` (36) chunky
+  signage bars per the redesign, so the runtime resample stays cheap.
+- UI fonts (Zen Kaku Gothic New, IBM Plex Mono) are subset woff2 files in
+  `assets/fonts/` covering latin + kana + the UI kanji only. If new JP
+  copy is added to the interface, the subsets must be regenerated
+  (fontTools `pyftsubset`) or the glyphs will fall back to system fonts.
 
 ## Architecture notes
 
@@ -38,3 +42,12 @@
   and caret position. See `renderInteraction` in `src/app.js`.
 - `setVisibleState` toggles `disabled` on hidden form controls so the tab
   order does not leak into non-applicable drill modes.
+- Flow rules (from the redesign): auto-advance fires only for unassisted
+  correct answers (`advanceDelayMs`, default 800 ms); revealed/incorrect
+  outcomes wait for NEXT / Enter / Space (document-level keydown, guarded
+  by `root.isConnected`). Wrong typed prefixes never block — the field
+  shakes and self-selects. `createApp(root, options)` accepts
+  `autoAdvance`, `advanceDelayMs`, and `romajiCaptions` flags.
+- The active mode paints `--mode-color` via `data-has-audio` on the drill
+  card: vermillion for visual, metro blue for aural. Sheets are color-coded
+  the same way via `data-kana-sheet`.

@@ -65,7 +65,7 @@ describe("app shell", () => {
     expect(document.querySelector("[data-reference-panel]")).toBeNull();
   });
 
-  it("places mode controls in the header above the drill and renders glyph-only font buttons", () => {
+  it("places mode tabs above the drill and renders preview + name font toggles", () => {
     createApp(document.querySelector("#app"));
 
     const drill = document.querySelector(".drill-stage");
@@ -76,9 +76,14 @@ describe("app shell", () => {
       drill?.compareDocumentPosition(modePicker ?? document.body) &
         Node.DOCUMENT_POSITION_PRECEDING,
     ).toBeTruthy();
-    expect(firstFontButton?.textContent?.trim()).toBe("あア");
-    expect(firstFontButton?.querySelector("small")).toBeTruthy();
-    expect(firstFontButton?.querySelector("span")).toBeNull();
+    expect(
+      firstFontButton
+        ?.querySelector(".font-toggle__preview")
+        ?.textContent?.trim(),
+    ).toBe("あア");
+    expect(firstFontButton?.querySelector("small")?.textContent?.trim()).toBe(
+      "Gothic",
+    );
   });
 
   it("enhances the authored HTML scaffold instead of replacing the app root", () => {
@@ -125,12 +130,14 @@ describe("app shell", () => {
     createApp(document.querySelector("#app"));
 
     const modeButtons = [...document.querySelectorAll("[data-mode]")].map(
-      (button) => button.textContent?.trim().toLowerCase(),
+      (button) => button.textContent?.toLowerCase() ?? "",
     );
 
-    expect(modeButtons).toContain("visual");
-    expect(modeButtons).toContain("aural");
-    expect(modeButtons).not.toContain("sound to drawing");
+    expect(modeButtons.some((text) => text.includes("visual"))).toBe(true);
+    expect(modeButtons.some((text) => text.includes("aural"))).toBe(true);
+    expect(modeButtons.some((text) => text.includes("sound to drawing"))).toBe(
+      false,
+    );
     expect(document.querySelector("[data-script-group]")).toBeNull();
     expect(document.querySelector("[data-group-group]")).toBeNull();
   });
@@ -208,9 +215,21 @@ describe("app shell", () => {
     expect(document.querySelector(".poster-kana")?.textContent).toBe(
       initialPrompt,
     );
+    // Typing feedback shakes the field and marks the input — it never
+    // paints the card-level outcome.
     expect(
-      document.querySelector(".prompt-card")?.getAttribute("data-outcome"),
+      document
+        .querySelector('[data-region="prompt"]')
+        ?.getAttribute("data-outcome"),
+    ).toBe("");
+    expect(
+      document.querySelector("[data-answer-input]")?.getAttribute("data-state"),
     ).toBe("incorrect");
+    expect(
+      document
+        .querySelector("[data-answer-input]")
+        ?.getAttribute("aria-invalid"),
+    ).toBe("true");
     expect(
       document
         .querySelector('[data-slot="prompt-status"]')
@@ -220,7 +239,7 @@ describe("app shell", () => {
       document
         .querySelector('[data-slot="status-message"]')
         ?.textContent?.toLowerCase(),
-    ).toContain("keep typing");
+    ).toContain("retype");
     expect(
       document.querySelector('[data-slot="stats-attempts"]')?.textContent,
     ).toBe("0");
@@ -358,24 +377,35 @@ describe("app shell", () => {
       (kana) => kana.script === "hiragana" && kana.group === "base",
     )?.glyph;
     const wrongChoice = [...document.querySelectorAll(".choice-card")].find(
-      (button) => button.textContent?.trim() !== expectedGlyph,
+      (button) =>
+        button.querySelector(".choice-card__glyph")?.textContent?.trim() !==
+        expectedGlyph,
     );
+    const wrongChoiceId = wrongChoice?.getAttribute("data-choice");
 
     wrongChoice?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     expect(
-      [...document.querySelectorAll(".choice-card")]
-        .find(
-          (button) =>
-            button.textContent?.trim() === wrongChoice?.textContent?.trim(),
-        )
+      document
+        .querySelector(`[data-choice="${wrongChoiceId}"]`)
         ?.getAttribute("data-state"),
     ).toBe("incorrect");
     expect(
       [...document.querySelectorAll(".choice-card")]
-        .find((button) => button.textContent?.trim() === expectedGlyph)
+        .find(
+          (button) =>
+            button
+              .querySelector(".choice-card__glyph")
+              ?.textContent?.trim() === expectedGlyph,
+        )
         ?.getAttribute("data-state"),
     ).toBe("correct");
+    // Every choice captions its romaji after the answer (learning moment).
+    expect(
+      [...document.querySelectorAll(".choice-card")].every((button) =>
+        Boolean(button.querySelector("small")),
+      ),
+    ).toBe(true);
 
     randomSpy.mockRestore();
   });
@@ -403,12 +433,21 @@ describe("app shell", () => {
   it("sizes the combination matrix to the full family-column layout", () => {
     createApp(document.querySelector("#app"));
 
-    const combinationTable = document.querySelector(
-      '[data-kana-sheet-matrix="hiragana:combination"] .reference-chart',
+    const combinationHeaders = document.querySelectorAll(
+      '[data-kana-sheet-matrix="hiragana:combination"] .kana-matrix__row--header .reference-column-toggle',
     );
-    expect(combinationTable?.getAttribute("style")).toContain(
-      "--reference-columns: 11",
-    );
+    expect(combinationHeaders).toHaveLength(11);
+    // Column headers are the 行 kana themselves with romaji beneath.
+    expect(
+      combinationHeaders[0]
+        ?.querySelector(".reference-column-toggle__kana")
+        ?.textContent?.trim(),
+    ).toBe("き");
+    expect(
+      combinationHeaders[0]
+        ?.querySelector(".reference-column-toggle__latin")
+        ?.textContent?.trim(),
+    ).toBe("k");
   });
 
   it("uses persistent kana sheets with fixed core and combination matrices", () => {

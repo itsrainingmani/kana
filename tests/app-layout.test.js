@@ -33,12 +33,12 @@ describe('app layout', () => {
     }));
 
     vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({
-      width: 320,
-      height: 320,
+      width: 250,
+      height: 64,
       top: 0,
       left: 0,
-      right: 320,
-      bottom: 320
+      right: 250,
+      bottom: 64
     }));
   });
 
@@ -59,8 +59,9 @@ describe('app layout', () => {
     expect(document.querySelector('[data-action="submit-drawing"]')).toBeNull();
   });
 
-  it('keeps drawing-specific layout classes out of the app shell', () => {
-    expect(styles).toMatch(/\.prompt-card\s*\{[\s\S]*min-height:\s*calc\(var\(--prompt-stage-height\) \+ \(2 \* var\(--space-4\)\)\);/s);
+  it('reserves stage height so the drill card does not shift between prompts', () => {
+    expect(styles).toMatch(/\.drill-card__stage\s*\{[\s\S]*?min-height:\s*196px;/);
+    expect(styles).toMatch(/\.prompt-status\s*\{[\s\S]*?min-height:\s*38px;/);
     expect(styles).not.toContain('.prompt-card--drawing');
     expect(styles).not.toContain('.drawing-pad');
   });

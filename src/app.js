@@ -37,30 +37,73 @@ function ensureWaveformsLoaded() {
   return waveformPromise;
 }
 
-const MODE_LABELS = {
-  "kana-to-sound": "Visual",
-  "sound-to-kana": "Aural",
+const MODE_LETTERS = {
+  "kana-to-sound": "V",
+  "sound-to-kana": "A",
 };
 
-const MODE_ICONS = {
-  "kana-to-sound": "keyboard",
-  "sound-to-kana": "volume",
+// Outcome word pairs for the status line. Vermillion is the positive mark
+// here (marubatsu grading): correct = せいかい, revealed = amber こたえ,
+// incorrect = ink ざんねん.
+const STATUS_THEMES = {
+  correct: { jp: "せいかい", en: "CORRECT" },
+  assisted: { jp: "こたえ", en: "REVEALED" },
+  incorrect: { jp: "ざんねん", en: "NOT QUITE" },
 };
 
-const ICONS = {
-  check: '<path d="M20 6 9 17l-5-5"></path>',
-  eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>',
-  keyboard:
-    '<rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="M6 8h.01"></path><path d="M10 8h.01"></path><path d="M14 8h.01"></path><path d="M18 8h.01"></path><path d="M8 12h.01"></path><path d="M12 12h.01"></path><path d="M16 12h.01"></path><path d="M7 16h10"></path>',
-  square: '<rect width="18" height="18" x="3" y="3" rx="2"></rect>',
-  volume:
-    '<path d="M11 5 6 9H2v6h4l5 4V5Z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>',
-};
+const TYPING_THEME = { jp: "ちがう", en: "NOT THAT SOUND — RETYPE" };
 
 const SCRIPT_LABELS = {
-  hiragana: "Hiragana",
-  katakana: "Katakana",
-  mixed: "Mixed",
+  hiragana: "HIRAGANA",
+  katakana: "KATAKANA",
+  mixed: "MIXED",
+  none: "NONE",
+};
+
+const SHEET_INFO = {
+  hiragana: { jp: "ひらがな", en: "HIRAGANA", badge: "ひ" },
+  katakana: { jp: "カタカナ", en: "KATAKANA", badge: "カ" },
+};
+
+const MATRIX_LABELS = {
+  core: { jp: "五十音・濁音", en: "CORE KANA" },
+  combination: { jp: "拗音", en: "COMBINATIONS" },
+};
+
+// Column headers are the 行 kana themselves ([hiragana, katakana, romaji]),
+// script-matched per sheet.
+const COLUMN_HEADS = {
+  core: {
+    vowels: ["あ", "ア", "a"],
+    k: ["か", "カ", "k"],
+    s: ["さ", "サ", "s"],
+    t: ["た", "タ", "t"],
+    n: ["な", "ナ", "n"],
+    h: ["は", "ハ", "h"],
+    m: ["ま", "マ", "m"],
+    y: ["や", "ヤ", "y"],
+    r: ["ら", "ラ", "r"],
+    w: ["わ", "ワ", "w"],
+    nn: ["ん", "ン", "n"],
+    g: ["が", "ガ", "g"],
+    z: ["ざ", "ザ", "z"],
+    d: ["だ", "ダ", "d"],
+    b: ["ば", "バ", "b"],
+    p: ["ぱ", "パ", "p"],
+  },
+  combination: {
+    k: ["き", "キ", "k"],
+    s: ["し", "シ", "s"],
+    t: ["ち", "チ", "t"],
+    n: ["に", "ニ", "n"],
+    h: ["ひ", "ヒ", "h"],
+    m: ["み", "ミ", "m"],
+    r: ["り", "リ", "r"],
+    g: ["ぎ", "ギ", "g"],
+    z: ["じ", "ジ", "z"],
+    b: ["び", "ビ", "b"],
+    p: ["ぴ", "ピ", "p"],
+  },
 };
 
 const SHEET_GROUP_ROWS = {
@@ -128,18 +171,6 @@ const SHEET_GROUP_ROWS = {
   ],
 };
 
-function getColumnLabel(column) {
-  if (column === "vowels") {
-    return "";
-  }
-
-  if (column === "nn") {
-    return "ん";
-  }
-
-  return column;
-}
-
 function toggleSelection(items, value) {
   return items.includes(value)
     ? items.filter((item) => item !== value)
@@ -175,7 +206,7 @@ function getActiveScriptLabel(session) {
     return SCRIPT_LABELS.katakana;
   }
 
-  return "No Kana Active";
+  return SCRIPT_LABELS.none;
 }
 
 function toggleRowSelectionForSheet(selectedRows, sheetKey, rowId) {
@@ -241,43 +272,30 @@ function createPromptForMode(mode, enabledKana) {
 }
 
 function formatAnswerLabel(prompt) {
-  return `${prompt.target.glyph} · ${prompt.target.romaji}`;
+  return `${prompt.target.glyph} · ${prompt.target.romaji.toUpperCase()}`;
 }
 
-function renderIcon(name) {
-  return `
-    <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      ${ICONS[name] ?? ""}
-    </svg>
-  `;
-}
-
-function renderControlButtons(
-  items,
-  activeValues,
-  datasetKey,
-  className = "brutal-button brutal-button--compact",
-) {
-  return items
+function renderFontButtons(fontOptions, activeIds) {
+  return fontOptions
     .map(
-      (item) => `
+      (font) => `
         <button
-          class="${className}${item.className ? ` ${item.className}` : ""}"
-          data-${datasetKey}="${item.id}"
-          data-active="${activeValues.includes(item.id)}"
+          class="font-toggle"
+          data-font="${font.id}"
+          data-active="${activeIds.includes(font.id)}"
+          aria-pressed="${activeIds.includes(font.id)}"
           type="button"
         >
-          ${item.icon ? renderIcon(item.icon) : ""}
-          ${item.previewOnly ? `<small>${item.preview}</small>` : `<span>${item.label}</span>`}
-          ${item.preview && !item.previewOnly ? `<small>${item.preview}</small>` : ""}
+          <span class="font-toggle__preview ${font.className}" lang="ja">あア</span>
+          <small>${font.label}</small>
         </button>
       `,
     )
     .join("");
 }
 
-function renderReferenceTables(tables, selectedRows) {
-  const sheets = ["hiragana", "katakana"]
+function renderReferenceTables(tables, selectedRows, enabledKana) {
+  return ["hiragana", "katakana"]
     .map((script) => {
       const scriptTables = tables.filter((table) => table.script === script);
 
@@ -285,81 +303,78 @@ function renderReferenceTables(tables, selectedRows) {
         return "";
       }
 
-      const scriptCount = scriptTables.reduce(
-        (count, table) =>
-          count +
-          table.rows.reduce(
-            (rowCount, row) =>
-              rowCount +
-              row.cells.reduce(
-                (cellCount, cell) => cellCount + cell.items.length,
-                0,
-              ),
-            0,
-          ),
-        0,
-      );
+      const info = SHEET_INFO[script];
+      const scriptCount = KANA_DATA.filter(
+        (kana) => kana.script === script,
+      ).length;
+      const activeCount = enabledKana.filter(
+        (kana) => kana.script === script,
+      ).length;
 
       return `
-        <section class="reference-sheet" data-kana-sheet="${script}">
-          <div class="reference-sheet__header">
-            <div class="section-heading">
-              <p class="module-label">${script === "hiragana" ? "H" : "K"} / Study Sheet</p>
-              <h3>${SCRIPT_LABELS[script]}</h3>
-            </div>
-            <div class="reference-sheet__meta">
-              <p class="reference-sheet__count">${scriptCount} kana</p>
-            </div>
+        <section class="kana-sheet" data-kana-sheet="${script}">
+          <div class="kana-sheet__head">
+            <span class="kana-sheet__id">
+              <span class="kana-sheet__badge" lang="ja" aria-hidden="true">${info.badge}</span>
+              <span class="kana-sheet__names">
+                <span class="kana-sheet__jp" lang="ja">${info.jp}</span>
+                <span class="kana-sheet__en">${info.en}</span>
+              </span>
+            </span>
+            <span class="kana-sheet__count" data-kana-sheet-count="${script}">${activeCount}/${scriptCount} ON</span>
           </div>
-          <div class="reference-sheet__tables">
-            ${scriptTables
-              .map((table) => {
-                const sheetKey = `${table.script}:${table.id}`;
-                const activeColumns = selectedRows[sheetKey] ?? [];
+          ${scriptTables
+            .map((table) => {
+              const sheetKey = `${table.script}:${table.id}`;
+              const activeColumns = selectedRows[sheetKey] ?? [];
+              const labels = MATRIX_LABELS[table.id];
+              const heads = COLUMN_HEADS[table.id];
 
-                return `
-                  <section class="reference-table" data-kana-sheet-matrix="${sheetKey}">
-                    <div class="reference-table__topline">
-                      <div class="section-heading reference-table__heading">
-                        <p class="module-label">${table.label}</p>
-                        <p class="reference-table__meta">${table.rows.map((row) => row.label).join(" / ")}</p>
-                      </div>
-                      <p class="reference-table__actions">
-                        <button class="reference-link-action" data-group-toggle-all="${sheetKey}" aria-label="Select all ${table.label}" title="Select all" type="button">${renderIcon("check")}<span class="sr-only">Select all</span></button>
-                        <span aria-hidden="true">|</span>
-                        <button class="reference-link-action" data-group-toggle-none="${sheetKey}" aria-label="Clear all ${table.label}" title="Clear all" type="button">${renderIcon("square")}<span class="sr-only">Clear all</span></button>
-                      </p>
-                    </div>
-                    <div
-                      class="reference-chart"
-                      data-reference-group="${table.id}"
-                      style="--reference-columns: ${table.columns.length}"
-                      role="table"
-                      aria-label="${SCRIPT_LABELS[table.script]} ${table.label}"
-                    >
-                      <div class="reference-chart__header reference-chart__header--rowlabel"></div>
-                      ${table.columns
-                        .map(
-                          (column) => `
-                            <button
-                              class="reference-chart__header reference-column-toggle"
-                              data-reference-column-toggle="${sheetKey}:${column}"
-                              data-column-active="${activeColumns.includes(column)}"
-                              type="button"
-                            >
-                              ${getColumnLabel(column)}
-                            </button>
-                          `,
-                        )
-                        .join("")}
-                      ${table.rows
-                        .map(
-                          (row) => `
-                            <div class="reference-chart__rowlabel">${row.label}</div>
-                            ${row.cells
-                              .map(
-                                (cell) => `
-                                <div class="reference-chart__cell reference-chart__stack" data-column-active="${activeColumns.includes(cell.columnId)}">
+              return `
+                <section class="kana-matrix" data-kana-sheet-matrix="${sheetKey}">
+                  <div class="kana-matrix__head">
+                    <p class="kana-matrix__label">
+                      <span lang="ja">${labels.jp}</span>
+                      <span class="kana-matrix__label-en">${labels.en}</span>
+                    </p>
+                    <span class="kana-matrix__actions">
+                      <button class="reference-link-action" data-group-toggle-all="${sheetKey}" aria-label="Select all ${labels.en}" type="button"><span lang="ja">ぜんぶ</span> ALL</button>
+                      <button class="reference-link-action reference-link-action--none" data-group-toggle-none="${sheetKey}" aria-label="Clear all ${labels.en}" type="button"><span lang="ja">なし</span> NONE</button>
+                    </span>
+                  </div>
+                  <div class="kana-matrix__row kana-matrix__row--header">
+                    <span class="kana-matrix__rowlabel" aria-hidden="true"></span>
+                    ${table.columns
+                      .map((column) => {
+                        const head = heads[column];
+                        const active = activeColumns.includes(column);
+                        const kana =
+                          table.script === "hiragana" ? head[0] : head[1];
+
+                        return `
+                          <button
+                            class="reference-column-toggle"
+                            data-reference-column-toggle="${sheetKey}:${column}"
+                            data-column-active="${active}"
+                            title="${active ? "Remove" : "Add"} ${head[2]} column"
+                            type="button"
+                          >
+                            <span class="reference-column-toggle__kana" lang="ja">${kana}</span>
+                            <span class="reference-column-toggle__latin">${head[2]}</span>
+                          </button>
+                        `;
+                      })
+                      .join("")}
+                  </div>
+                  ${table.rows
+                    .map(
+                      (row) => `
+                        <div class="kana-matrix__row">
+                          <span class="kana-matrix__rowlabel">${row.label}</span>
+                          ${row.cells
+                            .map(
+                              (cell) => `
+                                <span class="kana-matrix__cell" data-column-active="${activeColumns.includes(cell.columnId)}">
                                   ${cell.items
                                     .map(
                                       (kana) => `
@@ -370,34 +385,29 @@ function renderReferenceTables(tables, selectedRows) {
                                           data-column-active="${activeColumns.includes(cell.columnId)}"
                                           data-reference-audio-id="${kana.audioId}"
                                           title="${kana.romaji}"
+                                          aria-label="Play ${kana.romaji}"
+                                          lang="ja"
                                           type="button"
-                                        >
-                                          ${kana.glyph}
-                                        </button>
+                                        >${kana.glyph}</button>
                                       `,
                                     )
                                     .join("")}
-                                </div>
+                                </span>
                               `,
-                              )
-                              .join("")}
-                          `,
-                        )
-                        .join("")}
-                    </div>
-                  </section>
-                `;
-              })
-              .join("")}
-          </div>
+                            )
+                            .join("")}
+                        </div>
+                      `,
+                    )
+                    .join("")}
+                </section>
+              `;
+            })
+            .join("")}
         </section>
       `;
     })
     .join("");
-
-  return `
-    ${sheets}
-  `;
 }
 
 function setHidden(element, hidden) {
@@ -406,6 +416,13 @@ function setHidden(element, hidden) {
   }
 
   element.hidden = hidden;
+
+  if (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLButtonElement
+  ) {
+    element.disabled = hidden;
+  }
 }
 
 function setVisibleState(element, visible) {
@@ -417,7 +434,7 @@ function setVisibleState(element, visible) {
   element.dataset.visible = visible ? "true" : "false";
   element.setAttribute("aria-hidden", visible ? "false" : "true");
 
-  // CSS hides non-applicable inputs/buttons via `visibility:hidden`, but
+  // CSS hides non-applicable inputs/buttons via `display:none`, but
   // tab focus still reaches them unless we mark them `disabled`.
   if (element instanceof HTMLInputElement || element instanceof HTMLButtonElement) {
     element.disabled = !visible;
@@ -432,7 +449,11 @@ function setText(element, value) {
   element.textContent = value;
 }
 
-function resampleWaveform(values, sampleCount = 100) {
+// The waveform renders as 36 chunky signage bars (the design's 250×64px
+// stage); the 100-bucket peak data is downsampled to that count.
+const WAVEFORM_BAR_COUNT = 36;
+
+function resampleWaveform(values, sampleCount = WAVEFORM_BAR_COUNT) {
   if (!Array.isArray(values) || values.length === 0) {
     return Array.from({ length: sampleCount }, () => 0.12);
   }
@@ -450,6 +471,10 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     return null;
   }
 
+  const autoAdvance = options.autoAdvance ?? true;
+  const advanceDelayMs = Number(options.advanceDelayMs ?? 800);
+  const romajiCaptions = options.romajiCaptions ?? false;
+
   document.title = "Kana Trainer";
   root.dataset.enhanced = "true";
 
@@ -458,36 +483,43 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
   const audioClips = createAudioClipMap(KANA_DATA);
 
   const elements = {
-    modeLabel: root.querySelector('[data-slot="mode-label"]'),
     scriptLabel: root.querySelector('[data-slot="script-label"]'),
     promptCard: root.querySelector('[data-region="prompt"]'),
-    promptStage: root.querySelector(".prompt-card__stage"),
-    promptLabel:
-      root.querySelector('[data-slot="prompt-label"]') ??
-      root.querySelector(".prompt-card .module-label"),
+    promptStage: root.querySelector(".drill-card__stage"),
+    stationCode: root.querySelector('[data-slot="station-code"]'),
+    hintChip: root.querySelector('[data-slot="hint-chip"]'),
     promptGlyph: root.querySelector('[data-slot="prompt-glyph"]'),
-    promptMeta: root.querySelector('[data-slot="font-label"]'),
+    fontLabel: root.querySelector('[data-slot="font-label"]'),
     promptStatus: root.querySelector('[data-slot="prompt-status"]'),
     promptStatusMessage: root.querySelector('[data-slot="status-message"]'),
+    promptStatusJp: root.querySelector('[data-slot="status-jp"]'),
+    promptStatusEn: root.querySelector('[data-slot="status-en"]'),
     promptStatusAnswer: root.querySelector('[data-slot="status-answer"]'),
-    audioPosterButton: root.querySelector(".prompt-card .audio-poster-button"),
+    audioPosterButton: root.querySelector(".audio-poster-button"),
     waveformCanvas: root.querySelector('[data-slot="waveform-canvas"]'),
-    answerLabel:
-      root.querySelector('[data-slot="answer-label"]') ??
-      root.querySelector(".answer-label"),
+    emptyState: root.querySelector('[data-slot="empty-state"]'),
+    maruStamp: root.querySelector('[data-slot="maru-stamp"]'),
+    answerBlock: root.querySelector(".answer-block"),
+    typedBlock: root.querySelector('[data-slot="typed-block"]'),
+    choicesBlock: root.querySelector('[data-slot="choices-block"]'),
     answerInput: root.querySelector("[data-answer-input]"),
-    answerHelp: root.querySelector('[data-slot="answer-help"]'),
     choiceGrid: root.querySelector("[data-choice-grid]"),
     interactionBody: root.querySelector(".interaction-card__body"),
-    hintsCard: root.querySelector('[data-region="hints"]'),
-    playSoundButtons: () => root.querySelectorAll('[data-action="play-sound"]'),
+    drillActions: root.querySelector('[data-region="hints"]'),
+    hearButton: root.querySelector(
+      '[data-region="hints"] [data-action="play-sound"]',
+    ),
     revealButton: root.querySelector('[data-action="reveal"]'),
+    nextButton: root.querySelector('[data-action="next"]'),
     modeGroup: root.querySelector("[data-mode-group]"),
     fontGroup: root.querySelector("[data-font-group]"),
+    streakChip: root.querySelector('[data-slot="streak"]'),
+    streakCount: root.querySelector('[data-slot="streak-count"]'),
     statsAttempts: root.querySelector('[data-slot="stats-attempts"]'),
     statsCorrect: root.querySelector('[data-slot="stats-correct"]'),
     statsAssisted: root.querySelector('[data-slot="stats-assisted"]'),
     statsStrong: root.querySelector('[data-slot="stats-strong"]'),
+    sheetsSection: root.querySelector('[data-region="kana-sheets"]'),
     referenceContainer: root.querySelector("[data-reference-container]"),
   };
 
@@ -498,9 +530,7 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
   let usedHint = false;
   let advanceTimer = null;
   let activePromptKey = null;
-  let activePromptVisualKey = null;
   let selectedChoiceId = null;
-  let promptMotionTimer = null;
   let suppressInputFocus = false;
   let audioState = "idle";
   let audioPlaybackToken = 0;
@@ -527,26 +557,6 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     }
   }
 
-  function clearPromptMotionTimer() {
-    if (promptMotionTimer) {
-      clearTimeout(promptMotionTimer);
-      promptMotionTimer = null;
-    }
-  }
-
-  function pulsePromptMotion() {
-    if (!elements.promptCard) {
-      return;
-    }
-
-    clearPromptMotionTimer();
-    elements.promptCard.dataset.promptMotion = "incoming";
-    promptMotionTimer = setTimeout(() => {
-      elements.promptCard.dataset.promptMotion = "idle";
-      promptMotionTimer = null;
-    }, 220);
-  }
-
   function clearAudioState() {
     audioPlaybackToken += 1;
     audioState = "idle";
@@ -560,12 +570,19 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     }
   }
 
-  function scheduleAdvance(delay = 850) {
+  function advancePrompt() {
+    setPrompt();
+    render();
+    autoplayPromptAudio();
+  }
+
+  // Auto-advance applies to unassisted correct answers only; revealed and
+  // incorrect outcomes wait for NEXT / Enter / Space so the correction can
+  // actually be studied.
+  function scheduleAdvance(delay = advanceDelayMs) {
     clearAdvanceTimer();
     advanceTimer = setTimeout(() => {
-      setPrompt();
-      render();
-      autoplayPromptAudio();
+      advancePrompt();
     }, delay);
   }
 
@@ -655,6 +672,28 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     );
   }
 
+  // Streak counts unassisted correct answers; a miss or an assist resets it.
+  function updateStreak(outcome) {
+    const session = sessionStore.getState();
+    const streak = outcome === "correct" ? session.streak + 1 : 0;
+    sessionStore.setState({ streak });
+  }
+
+  function finishPrompt(outcome) {
+    recordOutcome(outcome);
+    updateStreak(outcome);
+    feedback = {
+      outcome,
+      answer: formatAnswerLabel(currentPrompt),
+    };
+    typingStatus = null;
+    render();
+
+    if (outcome === "correct" && autoAdvance) {
+      scheduleAdvance(advanceDelayMs);
+    }
+  }
+
   function renderAudioState() {
     if (!elements.audioPosterButton) {
       return;
@@ -671,8 +710,8 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     }
 
     const dpr = globalThis.devicePixelRatio || 1;
-    const cssWidth = canvas.clientWidth || canvas.offsetWidth || 320;
-    const cssHeight = canvas.clientHeight || canvas.offsetHeight || 56;
+    const cssWidth = canvas.clientWidth || canvas.offsetWidth || 250;
+    const cssHeight = canvas.clientHeight || canvas.offsetHeight || 64;
     const width = Math.max(1, Math.round(cssWidth * dpr));
     const height = Math.max(1, Math.round(cssHeight * dpr));
 
@@ -707,7 +746,8 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
 
     const halfHeight = height * 0.5;
     const xGap = width / activeWaveformBars.length;
-    ctx.lineWidth = Math.max(1.5, dpr * 1.5);
+    // 5px-wide bars with a 2px gap at the design's 250px stage width.
+    ctx.lineWidth = Math.max(1.5, xGap * 0.72);
     ctx.lineCap = "round";
 
     for (let index = 0; index < activeWaveformBars.length; index += 1) {
@@ -717,7 +757,7 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
         halfHeight * activeWaveformBars[index] * 1.76,
       );
       const played = (index + 1) / activeWaveformBars.length <= progress;
-      ctx.strokeStyle = played ? "#c82117" : "rgba(17, 17, 17, 0.34)";
+      ctx.strokeStyle = played ? "#14669e" : "rgba(26, 24, 21, 0.28)";
       ctx.beginPath();
       ctx.moveTo(barX, halfHeight - barHeight);
       ctx.lineTo(barX, halfHeight + barHeight);
@@ -782,7 +822,7 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     }
 
     if (activeWaveformKey !== prompt.target.audioId) {
-      activeWaveformBars = resampleWaveform(waveform.v, 100);
+      activeWaveformBars = resampleWaveform(waveform.v, WAVEFORM_BAR_COUNT);
       activeWaveformKey = prompt.target.audioId;
     }
 
@@ -801,9 +841,14 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     if (
       markHint &&
       audioId === currentPrompt?.target.audioId &&
-      sessionStore.getState().mode === "kana-to-sound"
+      sessionStore.getState().mode === "kana-to-sound" &&
+      !feedback &&
+      !usedHint
     ) {
       usedHint = true;
+      // The HINT chip appears immediately, so an assisted outcome is
+      // never a surprise.
+      render();
     }
 
     let token = audioPlaybackToken;
@@ -869,12 +914,14 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     }
 
     if (state === "incorrect") {
+      // A wrong prefix never blocks: shake the field and select the text
+      // so the next keystroke replaces it.
       typingStatus = {
         outcome: "incorrect",
-        message: "Keep typing.",
-        answer: "",
+        count: (typingStatus?.count ?? 0) + 1,
       };
       render();
+      elements.answerInput?.select();
       return;
     }
 
@@ -882,14 +929,7 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     const result = gradeKanaToSoundAnswer(answer, currentPrompt.target.romaji, {
       usedHint,
     });
-    recordOutcome(result.outcome);
-    feedback = {
-      outcome: result.outcome,
-      message: "Correct",
-      answer: formatAnswerLabel(currentPrompt),
-    };
-    render();
-    scheduleAdvance(700);
+    finishPrompt(result.outcome);
   }
 
   function revealPrompt() {
@@ -897,118 +937,101 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
       return;
     }
 
-    typingStatus = null;
     usedHint = true;
-    recordOutcome("assisted");
-    feedback = {
-      outcome: "assisted",
-      message: "Answer revealed",
-      answer: formatAnswerLabel(currentPrompt),
-    };
-    render();
-    scheduleAdvance(1100);
+    void handleAudioPrompt(currentPrompt.target.audioId, {
+      markHint: false,
+      animatePrompt: false,
+    });
+    finishPrompt("assisted");
   }
 
   function renderControls(session) {
-    elements.modeGroup.innerHTML = renderControlButtons(
-      [
-        {
-          id: "kana-to-sound",
-          label: MODE_LABELS["kana-to-sound"],
-          icon: MODE_ICONS["kana-to-sound"],
-        },
-        {
-          id: "sound-to-kana",
-          label: MODE_LABELS["sound-to-kana"],
-          icon: MODE_ICONS["sound-to-kana"],
-        },
-      ],
-      [session.mode],
-      "mode",
-    );
+    elements.modeGroup
+      ?.querySelectorAll("[data-mode]")
+      .forEach((button) => {
+        const active = button.dataset.mode === session.mode;
+        button.dataset.active = active ? "true" : "false";
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      });
 
-    elements.fontGroup.innerHTML = renderControlButtons(
-      FONT_OPTIONS.map((font) => ({
-        ...font,
-        preview: "あア",
-        previewOnly: true,
-      })),
+    elements.fontGroup.innerHTML = renderFontButtons(
+      FONT_OPTIONS,
       session.enabledFonts,
-      "font",
-      "font-toggle",
     );
   }
 
   function renderPromptSection(session, prompt, promptFont) {
-    const status = feedback ?? typingStatus;
-    const promptVisualKey = prompt
-      ? `${session.mode}:${prompt.target.id}:${promptFont.id}`
-      : "empty";
+    const mode = session.mode;
+    const isAural = mode === "sound-to-kana";
+    const showGlyph = Boolean(prompt) && (!isAural || Boolean(feedback));
+    const showWave = Boolean(prompt) && isAural && !feedback;
 
-    if (elements.promptStatus) {
-      elements.promptStatus.hidden = false;
-    }
-
-    setText(elements.modeLabel, MODE_LABELS[session.mode]);
     setText(elements.scriptLabel, getActiveScriptLabel(session));
+    setText(
+      elements.stationCode,
+      `STA. ${MODE_LETTERS[mode]}-${String(promptIndex).padStart(2, "0")}`,
+    );
 
-    if (!prompt) {
-      elements.promptCard.dataset.outcome = "";
-      elements.promptCard.dataset.hasAudio = "false";
-      setText(elements.promptLabel, "No Kana Active");
-      setText(elements.promptGlyph, "");
-      setVisibleState(elements.promptGlyph, false);
-      setVisibleState(elements.audioPosterButton, false);
-      setText(elements.promptMeta, "");
-      setText(elements.promptStatusMessage, "");
-      setText(elements.promptStatusAnswer, "");
-      elements.promptStatus.dataset.visible = "false";
-      elements.promptStatus.setAttribute("aria-hidden", "true");
-      elements.promptCard.dataset.promptMotion = "idle";
-      activePromptVisualKey = promptVisualKey;
-      return;
+    elements.promptCard.dataset.outcome = feedback?.outcome ?? "";
+    elements.promptCard.dataset.hasAudio = isAural ? "true" : "false";
+
+    setHidden(elements.hintChip, !(prompt && usedHint && !feedback));
+    setText(
+      elements.fontLabel,
+      !prompt
+        ? ""
+        : showGlyph
+          ? `FONT · ${promptFont.label}`
+          : "AUDIO PROMPT",
+    );
+
+    if (elements.promptStage) {
+      elements.promptStage.dataset.promptMotion = promptIndex % 2 ? "a" : "b";
     }
 
-    if (promptVisualKey !== activePromptVisualKey) {
-      pulsePromptMotion();
-      activePromptVisualKey = promptVisualKey;
-    }
-
-    elements.promptCard.dataset.outcome = status?.outcome ?? "";
-    setText(elements.promptMeta, promptFont.label);
-    renderAudioState();
-    renderWaveform(prompt);
-
-    if (session.mode === "sound-to-kana") {
-      elements.promptCard.dataset.hasAudio = "true";
-      setText(elements.promptLabel, "Listen, then choose");
-      setText(elements.promptGlyph, "");
-      delete elements.promptGlyph.dataset.kanaGroup;
-      elements.promptGlyph.className = "poster-kana";
-      setVisibleState(elements.promptGlyph, false);
-      setVisibleState(elements.audioPosterButton, true);
-      elements.audioPosterButton.setAttribute("aria-label", "Replay audio");
-    } else {
-      elements.promptCard.dataset.hasAudio = "false";
-      setText(elements.promptLabel, "See, then type");
+    if (showGlyph) {
       setText(elements.promptGlyph, prompt.target.glyph);
       elements.promptGlyph.dataset.kanaGroup = prompt.target.group;
       elements.promptGlyph.className = `poster-kana ${promptFont.className}`;
-      setVisibleState(elements.promptGlyph, true);
-      setVisibleState(elements.audioPosterButton, false);
-      elements.audioPosterButton.setAttribute("aria-label", "Play audio");
+    } else {
+      setText(elements.promptGlyph, "");
+      delete elements.promptGlyph.dataset.kanaGroup;
+      elements.promptGlyph.className = "poster-kana";
     }
 
-    if (!status) {
-      setText(elements.promptStatusMessage, "");
+    setVisibleState(elements.promptGlyph, showGlyph);
+    setVisibleState(elements.audioPosterButton, showWave);
+    setHidden(elements.emptyState, Boolean(prompt));
+    setHidden(
+      elements.maruStamp,
+      !(feedback?.outcome === "correct" && showGlyph),
+    );
+
+    renderAudioState();
+    renderWaveform(showWave ? prompt : null);
+
+    const statusTheme = feedback
+      ? { tone: feedback.outcome, ...STATUS_THEMES[feedback.outcome] }
+      : typingStatus
+        ? { tone: "typing", ...TYPING_THEME }
+        : null;
+
+    if (!statusTheme) {
+      setText(elements.promptStatusJp, "");
+      setText(elements.promptStatusEn, "");
       setText(elements.promptStatusAnswer, "");
+      delete elements.promptStatusMessage?.dataset.tone;
       elements.promptStatus.dataset.visible = "false";
       elements.promptStatus.setAttribute("aria-hidden", "true");
       return;
     }
 
-    setText(elements.promptStatusMessage, status.message);
-    setText(elements.promptStatusAnswer, status.answer ?? "");
+    setText(elements.promptStatusJp, statusTheme.jp);
+    setText(elements.promptStatusEn, statusTheme.en);
+    setText(elements.promptStatusAnswer, feedback?.answer ?? "");
+    if (elements.promptStatusMessage) {
+      elements.promptStatusMessage.dataset.tone = statusTheme.tone;
+    }
     elements.promptStatus.dataset.visible = "true";
     elements.promptStatus.setAttribute("aria-hidden", "false");
   }
@@ -1018,10 +1041,12 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
       ? `${session.mode}:${prompt.target.id}:${promptFont.id}`
       : "empty";
 
+    setHidden(elements.answerBlock, !prompt);
+
     if (session.mode === "sound-to-kana" && prompt) {
-      setText(elements.answerLabel, "Choose the kana");
+      setVisibleState(elements.typedBlock, false);
       setVisibleState(elements.answerInput, false);
-      setVisibleState(elements.answerHelp, false);
+      setVisibleState(elements.choicesBlock, true);
       setVisibleState(elements.choiceGrid, true);
       elements.choiceGrid.innerHTML = prompt.options
         .map((option) => {
@@ -1030,7 +1055,7 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
           if (feedback) {
             const isTargetChoice = option.id === prompt.target.id;
             const isSelectedChoice = option.id === selectedChoiceId;
-            // Allow homophone partners (じ/ぢ, ず/づ) to also glow "correct"
+            // Allow homophone partners (じ/ぢ, ず/づ) to also read "correct"
             // when the user picked the alternative glyph that shares the
             // same recording. The grader already accepts these as correct.
             const isHomophoneChoice =
@@ -1046,9 +1071,11 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
             }
           }
 
+          const showRomaji = Boolean(feedback) || romajiCaptions;
+
           return `
             <button
-              class="choice-card ${promptFont.className}"
+              class="choice-card"
               data-choice="${option.id}"
               data-kana-group="${option.group}"
               data-state="${choiceState}"
@@ -1056,7 +1083,8 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
               type="button"
               ${feedback ? "disabled" : ""}
             >
-              <span data-romaji="${option.romaji}">${option.glyph}</span>
+              <span class="choice-card__glyph ${promptFont.className}" lang="ja" data-romaji="${option.romaji}">${option.glyph}</span>
+              ${showRomaji ? `<small>${option.romaji}</small>` : ""}
             </button>
           `;
         })
@@ -1068,10 +1096,10 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     // kana-to-sound path: keep the authored DOM stable (no per-render
     // innerHTML rewrite) so the user's typed text, caret, and IME
     // composition survive every render.
-    setText(elements.answerLabel, "Type the romaji sound");
     elements.choiceGrid.innerHTML = "";
+    setVisibleState(elements.typedBlock, true);
     setVisibleState(elements.answerInput, true);
-    setVisibleState(elements.answerHelp, true);
+    setVisibleState(elements.choicesBlock, false);
     setVisibleState(elements.choiceGrid, false);
 
     if (activePromptKey !== promptKey && elements.answerInput) {
@@ -1084,6 +1112,13 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
       elements.answerInput.disabled = Boolean(feedback || !prompt);
       elements.answerInput.dataset.state =
         feedback?.outcome ?? typingStatus?.outcome ?? "pending";
+      // Alternate the shake keyframe name so repeated wrong prefixes
+      // re-trigger the animation.
+      elements.answerInput.dataset.shake = typingStatus
+        ? typingStatus.count % 2
+          ? "a"
+          : "b"
+        : "";
       elements.answerInput.setAttribute(
         "aria-invalid",
         typingStatus?.outcome === "incorrect" ? "true" : "false",
@@ -1093,42 +1128,36 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     activePromptKey = promptKey;
   }
 
-  function renderHints(session, prompt) {
-    const hidden = !prompt || Boolean(feedback);
-    setHidden(elements.hintsCard, hidden);
-
-    if (hidden) {
-      return;
+  function renderActions(session, prompt) {
+    setHidden(elements.drillActions, !prompt || Boolean(feedback));
+    setHidden(elements.hearButton, session.mode === "sound-to-kana");
+    if (elements.revealButton) {
+      elements.revealButton.disabled = !prompt || Boolean(feedback);
     }
-
-    elements.playSoundButtons().forEach((button) => {
-      if (button === elements.audioPosterButton) {
-        return;
-      }
-
-      const label = session.mode === "sound-to-kana" ? "Replay" : "Hear";
-      button.innerHTML = `${renderIcon("volume")}<span>${label}</span>`;
-      button.setAttribute("aria-label", label);
-      button.disabled = false;
-      button.hidden = session.mode === "sound-to-kana";
-    });
-    elements.revealButton.innerHTML = `${renderIcon("eye")}<span>Reveal</span>`;
-    elements.revealButton.setAttribute("aria-label", "Reveal answer");
-    elements.revealButton.disabled = false;
+    setHidden(elements.nextButton, !feedback);
   }
 
-  function renderStats(summary) {
+  function renderStats(summary, session) {
     elements.statsAttempts.textContent = String(summary.attempts);
     elements.statsCorrect.textContent = String(summary.correct);
     elements.statsAssisted.textContent = String(summary.assisted);
     elements.statsStrong.textContent = String(summary.strong);
+
+    if (elements.streakCount) {
+      elements.streakCount.textContent = String(session.streak);
+    }
+    if (elements.streakChip) {
+      elements.streakChip.dataset.active =
+        session.streak > 0 ? "true" : "false";
+    }
   }
 
-  function renderReference(referenceKana) {
+  function renderReference(referenceKana, enabledKana) {
     const tables = createKanaSelectionMatrices(referenceKana);
     elements.referenceContainer.innerHTML = renderReferenceTables(
       tables,
       sessionStore.getState().selectedRows,
+      enabledKana,
     );
   }
 
@@ -1142,9 +1171,9 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     renderControls(session);
     renderPromptSection(session, currentPrompt, promptFont);
     renderInteraction(session, currentPrompt, promptFont);
-    renderHints(session, currentPrompt);
-    renderStats(summary);
-    renderReference(referenceKana);
+    renderActions(session, currentPrompt);
+    renderStats(summary, session);
+    renderReference(referenceKana, enabledKana);
 
     if (
       session.mode === "kana-to-sound" &&
@@ -1166,6 +1195,10 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     }
 
     if (button.dataset.mode) {
+      if (button.dataset.mode === sessionStore.getState().mode) {
+        return;
+      }
+
       sessionStore.setState({ mode: button.dataset.mode });
       setPrompt();
       render();
@@ -1260,14 +1293,22 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
           expectedAudioId: currentPrompt.target.audioId,
         },
       );
-      recordOutcome(result.outcome);
-      feedback = {
-        outcome: result.outcome,
-        message: result.correct ? "Correct" : "Expected",
-        answer: formatAnswerLabel(currentPrompt),
-      };
-      render();
-      scheduleAdvance(result.correct ? 700 : 950);
+      finishPrompt(result.outcome);
+      return;
+    }
+
+    if (button.dataset.action === "next") {
+      if (feedback) {
+        advancePrompt();
+      }
+      return;
+    }
+
+    if (button.dataset.action === "goto-sheets") {
+      elements.sheetsSection?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
       return;
     }
 
@@ -1285,6 +1326,28 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
 
   elements.answerInput.addEventListener("input", (event) => {
     resolveKanaTyping(event.currentTarget.value);
+  });
+
+  // Manual advance is always available during feedback: NEXT, Enter, or
+  // Space. The document-level listener works even when nothing inside the
+  // card has focus (the disabled input drops focus after answering).
+  document.addEventListener("keydown", (event) => {
+    if (!root.isConnected || !feedback) {
+      return;
+    }
+
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    // Let a focused NEXT button handle its own click instead of firing a
+    // duplicate advance from the key event.
+    if (event.target === elements.nextButton) {
+      return;
+    }
+
+    event.preventDefault();
+    advancePrompt();
   });
 
   setPrompt();
