@@ -41,7 +41,7 @@ function pickOne(items, random = Math.random) {
   return items[Math.floor(random() * items.length)];
 }
 
-function normalizeRomaji(value) {
+export function normalizeRomaji(value) {
   return value.trim().toLowerCase();
 }
 
@@ -299,8 +299,20 @@ export function gradeKanaToSoundAnswer(input, expected, { usedHint = false } = {
   };
 }
 
-export function gradeSoundToKanaAnswer(selectedId, expectedId, { usedHint = false } = {}) {
-  const correct = selectedId === expectedId;
+export function gradeSoundToKanaAnswer(
+  selectedId,
+  expectedId,
+  { usedHint = false, selectedAudioId, expectedAudioId } = {}
+) {
+  const isExactMatch = selectedId === expectedId;
+  // じ/ぢ (ji) and ず/づ (zu) share the same recording; treat any option
+  // whose audioId matches the target's audioId as a correct answer.
+  const isHomophoneMatch =
+    Boolean(expectedAudioId) &&
+    Boolean(selectedAudioId) &&
+    selectedAudioId === expectedAudioId;
+
+  const correct = isExactMatch || isHomophoneMatch;
 
   return {
     correct,
