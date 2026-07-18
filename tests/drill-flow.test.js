@@ -273,6 +273,99 @@ describe("drill flow", () => {
     randomSpy.mockRestore();
   });
 
+  it("answers aural prompts with the number keys and replays with R", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    createApp(document.querySelector("#app"));
+
+    document
+      .querySelector('[data-mode="sound-to-kana"]')
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    await Promise.resolve();
+
+    const autoplayCount = MockAudio.instances.length;
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "r", bubbles: true }),
+    );
+    await Promise.resolve();
+
+    expect(MockAudio.instances.length).toBe(autoplayCount + 1);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "2", bubbles: true }),
+    );
+
+    expect(
+      document
+        .querySelector('[data-slot="prompt-status"]')
+        ?.getAttribute("data-visible"),
+    ).toBe("true");
+
+    randomSpy.mockRestore();
+  });
+
+  it("patches the choice cards in place on feedback instead of rebuilding them", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    createApp(document.querySelector("#app"));
+
+    document
+      .querySelector('[data-mode="sound-to-kana"]')
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    await Promise.resolve();
+
+    const firstCard = document.querySelector(".choice-card");
+    const grid = document.querySelector("[data-choice-grid]");
+
+    // Captions occupy their slot from the start; only their visibility flips.
+    expect(firstCard?.querySelector("small")).toBeTruthy();
+    expect(grid?.getAttribute("data-show-romaji")).toBe("false");
+
+    firstCard?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    // Same node identity → the state color transition can actually run.
+    expect(document.querySelector(".choice-card")).toBe(firstCard);
+    expect(grid?.getAttribute("data-show-romaji")).toBe("true");
+    expect(firstCard?.getAttribute("data-state")).not.toBe("idle");
+
+    randomSpy.mockRestore();
+  });
+
+  it("patches the study sheets in place across renders", () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    createApp(document.querySelector("#app"));
+
+    const toggle = document.querySelector(
+      '[data-reference-column-toggle="hiragana:core:k"]',
+    );
+    expect(toggle?.getAttribute("data-column-active")).toBe("true");
+
+    // A typing render must not rebuild the ~500 sheet buttons.
+    typeAnswer("x");
+    expect(
+      document.querySelector('[data-reference-column-toggle="hiragana:core:k"]'),
+    ).toBe(toggle);
+
+    // Toggling still updates the patched attributes and counters.
+    toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(toggle?.getAttribute("data-column-active")).toBe("false");
+    expect(toggle?.getAttribute("aria-pressed")).toBe("false");
+    expect(
+      document.querySelector('[data-kana-sheet-count="hiragana"]')?.textContent,
+    ).toBe("41/104 ON");
+    expect(
+      document.querySelector(
+        '[data-reference-column-toggle="hiragana:core:k"]',
+      ),
+    ).toBe(toggle);
+
+    randomSpy.mockRestore();
+  });
+
   it("offers a route out of the empty state", () => {
     createApp(document.querySelector("#app"));
 

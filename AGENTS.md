@@ -51,3 +51,14 @@
 - The active mode paints `--mode-color` via `data-has-audio` on the drill
   card: vermillion for visual, metro blue for aural. Sheets are color-coded
   the same way via `data-kana-sheet`.
+- Rendering is build-once + patch-in-place for the font toggles, study
+  sheets, and choice grid (`data-built` / `data-prompt-key` guards). Never
+  revert these to per-render `innerHTML`: rebuilding kills the CSS state
+  transitions, re-triggers entrance animations mid-answer, and makes every
+  keystroke re-render ~500 sheet buttons.
+- One-shot feedback animations (font-toggle deny nudge, streak pop) run
+  through `replayAttributeAnimation`, keyed to `data-deny` / `data-pop`.
+- Aural keyboard paths: 1–6 pick choices (hints render only on
+  hover-capable pointers), R replays the clip; Enter/Space advance during
+  feedback. The prompt entrance animation is keyed to the alternating
+  `data-prompt-motion` value and suppressed on the very first paint.
