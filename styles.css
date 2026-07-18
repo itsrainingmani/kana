@@ -177,9 +177,9 @@ button:focus-visible {
 .app-shell {
   max-width: 430px;
   margin: 0 auto;
-  padding: 18px 14px 56px;
+  padding: 28px 16px 80px;
   display: grid;
-  gap: 18px;
+  gap: 26px;
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     'mast'
@@ -223,7 +223,8 @@ button:focus-visible {
 @media (min-width: 780px) {
   .app-shell {
     max-width: 1100px;
-    gap: 20px 44px;
+    padding: 56px 24px 104px;
+    gap: 32px 64px;
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.94fr);
     grid-template-rows: auto auto auto auto auto 1fr;
     grid-template-areas:
@@ -267,7 +268,7 @@ button:focus-visible {
 
 .masthead {
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
 .masthead__topline {
@@ -300,7 +301,7 @@ button:focus-visible {
 .masthead__banner {
   display: flex;
   align-items: flex-end;
-  gap: 14px;
+  gap: 16px;
 }
 
 .masthead__hanko {
@@ -345,6 +346,10 @@ button:focus-visible {
 }
 
 @media (min-width: 780px) {
+  .masthead {
+    margin-bottom: 8px;
+  }
+
   .masthead__title {
     font-size: 64px;
   }
@@ -357,7 +362,7 @@ button:focus-visible {
 .mode-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
 }
 
 .mode-tab {
@@ -365,8 +370,8 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 56px;
-  padding: 8px 12px;
+  min-height: 60px;
+  padding: 10px 14px;
   border: 1.5px solid rgba(26, 24, 21, 0.25);
   background: transparent;
   box-shadow: none;
@@ -440,9 +445,9 @@ button:focus-visible {
   border: 1.5px solid var(--card-border);
   border-top: 5px solid var(--mode-color);
   border-radius: 2px;
-  padding: 12px 16px 16px;
+  padding: 18px 20px 22px;
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 .drill-card[data-has-audio='true'] {
@@ -541,8 +546,13 @@ button:focus-visible {
 }
 
 @media (min-width: 780px) {
+  .drill-card {
+    padding: 22px 26px 26px;
+    gap: 14px;
+  }
+
   .drill-card__stage {
-    min-height: 256px;
+    min-height: 300px;
   }
 
   .poster-kana {
@@ -561,9 +571,9 @@ button:focus-visible {
   background: transparent;
   cursor: pointer;
   display: grid;
-  gap: 14px;
+  gap: 16px;
   justify-items: center;
-  padding: 12px 0;
+  padding: 16px 0;
   transition: transform 100ms ease;
 }
 
@@ -729,13 +739,13 @@ button:focus-visible {
 
 .answer-block {
   border-top: 1px solid var(--hairline);
-  padding-top: 12px;
+  padding-top: 16px;
 }
 
 .answer-typed,
 .answer-choices {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .answer-typed[data-visible='false'],
@@ -788,7 +798,7 @@ button:focus-visible {
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .choice-grid[data-visible='false'] {
@@ -886,7 +896,7 @@ button:focus-visible {
 
 .drill-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
 .drill-actions[hidden] {
@@ -959,7 +969,7 @@ button:focus-visible {
 .record-strip,
 .fonts-strip {
   display: grid;
-  gap: 10px;
+  gap: 14px;
 }
 
 .strip-head {
@@ -968,7 +978,7 @@ button:focus-visible {
   align-items: baseline;
   gap: 8px;
   border-top: 2px solid var(--ink);
-  padding-top: 8px;
+  padding-top: 10px;
 }
 
 .strip-note {
@@ -1004,9 +1014,15 @@ button:focus-visible {
 
 .stats-cell {
   display: grid;
-  gap: 3px;
-  padding: 2px 10px;
+  gap: 4px;
+  padding: 4px 14px;
   border-left: 1px solid rgba(26, 24, 21, 0.16);
+}
+
+/* The first figure hangs flush with the RECORD label above it. */
+.stats-cell:first-child {
+  border-left: 0;
+  padding-left: 0;
 }
 
 .stats-value {
@@ -1042,7 +1058,7 @@ button:focus-visible {
 .font-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .font-toggle {
@@ -1097,15 +1113,24 @@ button:focus-visible {
 /* ------------------------------------------------------------------ */
 
 .kana-sheets {
+  /* A chapter break: the study sheets start a new spread on mobile. */
+  margin-top: 10px;
   display: grid;
-  gap: 12px;
+  gap: 16px;
+}
+
+@media (min-width: 780px) {
+  /* In the desktop rail the sheets align with the mode tabs' band. */
+  .kana-sheets {
+    margin-top: 0;
+  }
 }
 
 .sheets-head {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   border-top: 2px solid var(--ink);
-  padding-top: 8px;
+  padding-top: 10px;
 }
 
 .sheets-title {
@@ -1138,7 +1163,7 @@ button:focus-visible {
 
 .reference-panel__body {
   display: grid;
-  gap: 12px;
+  gap: 20px;
 }
 
 .kana-sheet {
@@ -1149,9 +1174,9 @@ button:focus-visible {
   border: 1.5px solid var(--card-border);
   border-top: 5px solid var(--sheet-color);
   border-radius: 2px;
-  padding: 12px 10px 14px;
+  padding: 16px 14px 18px;
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
 .kana-sheet[data-kana-sheet='katakana'] {
@@ -1211,9 +1236,9 @@ button:focus-visible {
 
 .kana-matrix {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   border-top: 1px solid var(--hairline);
-  padding-top: 10px;
+  padding-top: 12px;
 }
 
 .kana-matrix__head {
