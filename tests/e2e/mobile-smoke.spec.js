@@ -72,6 +72,10 @@ test('uses an authored drill shell with a single merged drill card', async ({ pa
 test('keeps the kana position stable when typing feedback appears', async ({ page }) => {
   await page.goto('/');
 
+  // Settle web fonts first — a swap from fallback metrics between the two
+  // measurements would report a phantom layout shift.
+  await page.evaluate(() => document.fonts.ready);
+
   const prompt = page.locator('.poster-kana');
   const beforeBox = await prompt.boundingBox();
 

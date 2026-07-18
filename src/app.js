@@ -294,6 +294,24 @@ function renderFontButtons(fontOptions, activeIds) {
     .join("");
 }
 
+// Re-trigger a one-shot CSS animation bound to `[data-<name>]` on an
+// element that may still carry the attribute from a previous run.
+function replayAttributeAnimation(element, name) {
+  if (!element) {
+    return;
+  }
+
+  element.removeAttribute(`data-${name}`);
+  // Force a style flush so re-adding the attribute restarts the animation.
+  void element.offsetWidth;
+  element.setAttribute(`data-${name}`, "");
+  element.addEventListener(
+    "animationend",
+    () => element.removeAttribute(`data-${name}`),
+    { once: true },
+  );
+}
+
 function renderReferenceTables(tables, selectedRows, enabledKana) {
   return ["hiragana", "katakana"]
     .map((script) => {
@@ -356,6 +374,8 @@ function renderReferenceTables(tables, selectedRows, enabledKana) {
                             class="reference-column-toggle"
                             data-reference-column-toggle="${sheetKey}:${column}"
                             data-column-active="${active}"
+                            data-latin="${head[2]}"
+                            aria-pressed="${active}"
                             title="${active ? "Remove" : "Add"} ${head[2]} column"
                             type="button"
                           >
@@ -374,7 +394,7 @@ function renderReferenceTables(tables, selectedRows, enabledKana) {
                           ${row.cells
                             .map(
                               (cell) => `
-                                <span class="kana-matrix__cell" data-column-active="${activeColumns.includes(cell.columnId)}">
+                                <span class="kana-matrix__cell" data-cell-column="${sheetKey}:${cell.columnId}" data-column-active="${activeColumns.includes(cell.columnId)}">
                                   ${cell.items
                                     .map(
                                       (kana) => `
@@ -524,6 +544,8 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
   };
 
   let promptIndex = 0;
+  let hasRendered = false;
+  let lastStreak = null;
   let currentPrompt = null;
   let feedback = null;
   let typingStatus = null;
@@ -954,10 +976,22 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
         button.setAttribute("aria-pressed", active ? "true" : "false");
       });
 
-    elements.fontGroup.innerHTML = renderFontButtons(
-      FONT_OPTIONS,
-      session.enabledFonts,
-    );
+    // Build the font toggles once, then patch active states in place so
+    // the color transitions run and one-shot animations aren't wiped.
+    if (elements.fontGroup.dataset.built !== "true") {
+      elements.fontGroup.innerHTML = renderFontButtons(
+        FONT_OPTIONS,
+        session.enabledFonts,
+      );
+      elements.fontGroup.dataset.built = "true";
+      return;
+    }
+
+    elements.fontGroup.querySelectorAll("[data-font]").forEach((button) => {
+      const active = session.enabledFonts.includes(button.dataset.font);
+      button.dataset.active = active ? "true" : "false";
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
   }
 
   function renderPromptSection(session, prompt, promptFont) {
@@ -986,7 +1020,15 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     );
 
     if (elements.promptStage) {
-      elements.promptStage.dataset.promptMotion = promptIndex % 2 ? "a" : "b";
+      // The alternating keyframe name re-triggers the entrance exactly once
+      // per prompt; renders within the same prompt leave it untouched. The
+      // very first paint is suppressed with an inline override — entrances
+      // respond to input, not mounting.
+      const motion = promptIndex % 2 ? "a" : "b";
+      if (elements.promptStage.dataset.promptMotion !== motion) {
+        elements.promptStage.style.animation = hasRendered ? "" : "none";
+        elements.promptStage.dataset.promptMotion = motion;
+      }
     }
 
     if (showGlyph) {
@@ -998,6 +1040,12 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
       delete elements.promptGlyph.dataset.kanaGroup;
       elements.promptGlyph.className = "poster-kana";
     }
+
+    // The aural answer reveal is a waveform → glyph crossfade between very
+    // different shapes; a touch of blur + scale softens it. The attribute
+    // only flips once per feedback, so re-renders don't re-trigger it.
+    elements.promptGlyph.dataset.reveal =
+      isAural && showGlyph ? "true" : "false";
 
     setVisibleState(elements.promptGlyph, showGlyph);
     setVisibleState(elements.audioPosterButton, showWave);
@@ -1048,47 +1096,74 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
       setVisibleState(elements.answerInput, false);
       setVisibleState(elements.choicesBlock, true);
       setVisibleState(elements.choiceGrid, true);
-      elements.choiceGrid.innerHTML = prompt.options
-        .map((option) => {
-          let choiceState = "idle";
 
-          if (feedback) {
-            const isTargetChoice = option.id === prompt.target.id;
-            const isSelectedChoice = option.id === selectedChoiceId;
-            // Allow homophone partners (じ/ぢ, ず/づ) to also read "correct"
-            // when the user picked the alternative glyph that shares the
-            // same recording. The grader already accepts these as correct.
-            const isHomophoneChoice =
-              isSelectedChoice &&
-              !isTargetChoice &&
-              Boolean(prompt.target.audioId) &&
-              option.audioId === prompt.target.audioId;
+      const grid = elements.choiceGrid;
 
-            if (isTargetChoice || isHomophoneChoice) {
-              choiceState = "correct";
-            } else if (isSelectedChoice) {
-              choiceState = "incorrect";
-            }
-          }
+      const choiceStateFor = (option) => {
+        if (!feedback) {
+          return "idle";
+        }
 
-          const showRomaji = Boolean(feedback) || romajiCaptions;
+        const isTargetChoice = option.id === prompt.target.id;
+        const isSelectedChoice = option.id === selectedChoiceId;
+        // Allow homophone partners (じ/ぢ, ず/づ) to also read "correct"
+        // when the user picked the alternative glyph that shares the
+        // same recording. The grader already accepts these as correct.
+        const isHomophoneChoice =
+          isSelectedChoice &&
+          !isTargetChoice &&
+          Boolean(prompt.target.audioId) &&
+          option.audioId === prompt.target.audioId;
 
-          return `
-            <button
-              class="choice-card"
-              data-choice="${option.id}"
-              data-kana-group="${option.group}"
-              data-state="${choiceState}"
-              data-romaji="${option.romaji}"
-              type="button"
-              ${feedback ? "disabled" : ""}
-            >
-              <span class="choice-card__glyph ${promptFont.className}" lang="ja" data-romaji="${option.romaji}">${option.glyph}</span>
-              ${showRomaji ? `<small>${option.romaji}</small>` : ""}
-            </button>
-          `;
-        })
-        .join("");
+        if (isTargetChoice || isHomophoneChoice) {
+          return "correct";
+        }
+
+        return isSelectedChoice ? "incorrect" : "idle";
+      };
+
+      // Captions live in the DOM from the start (reserving their space so
+      // nothing shifts on answer) and fade in via the grid attribute.
+      grid.dataset.showRomaji =
+        feedback || romajiCaptions ? "true" : "false";
+
+      if (grid.dataset.promptKey !== promptKey) {
+        // Fresh prompt: rebuild with a staggered entrance. Skipped on the
+        // very first paint — entrances respond to input, not mounting.
+        grid.dataset.motion = hasRendered ? "in" : "static";
+        grid.dataset.promptKey = promptKey;
+        grid.innerHTML = prompt.options
+          .map(
+            (option, index) => `
+              <button
+                class="choice-card"
+                data-choice="${option.id}"
+                data-kana-group="${option.group}"
+                data-state="idle"
+                data-romaji="${option.romaji}"
+                type="button"
+                style="--stagger-index: ${index}"
+              >
+                <span class="choice-card__key" aria-hidden="true">${index + 1}</span>
+                <span class="choice-card__glyph ${promptFont.className}" lang="ja" data-romaji="${option.romaji}">${option.glyph}</span>
+                <small aria-hidden="true">${option.romaji}</small>
+              </button>
+            `,
+          )
+          .join("");
+      } else {
+        // Same prompt (answer/feedback render): patch the existing buttons
+        // in place so the state color transitions actually run and no
+        // entrance animation re-triggers.
+        grid.querySelectorAll("[data-choice]").forEach((button) => {
+          const option = prompt.options.find(
+            (candidate) => candidate.id === button.dataset.choice,
+          );
+          button.dataset.state = option ? choiceStateFor(option) : "idle";
+          button.disabled = Boolean(feedback);
+        });
+      }
+
       activePromptKey = promptKey;
       return;
     }
@@ -1097,6 +1172,7 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     // innerHTML rewrite) so the user's typed text, caret, and IME
     // composition survive every render.
     elements.choiceGrid.innerHTML = "";
+    delete elements.choiceGrid.dataset.promptKey;
     setVisibleState(elements.typedBlock, true);
     setVisibleState(elements.answerInput, true);
     setVisibleState(elements.choicesBlock, false);
@@ -1149,16 +1225,78 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     if (elements.streakChip) {
       elements.streakChip.dataset.active =
         session.streak > 0 ? "true" : "false";
+      // A small pop marks the increment in peripheral vision — reserved
+      // for gains only, never for the reset.
+      if (lastStreak !== null && session.streak > lastStreak) {
+        replayAttributeAnimation(elements.streakChip, "pop");
+      }
     }
+    lastStreak = session.streak;
   }
 
   function renderReference(referenceKana, enabledKana) {
-    const tables = createKanaSelectionMatrices(referenceKana);
-    elements.referenceContainer.innerHTML = renderReferenceTables(
-      tables,
-      sessionStore.getState().selectedRows,
-      enabledKana,
-    );
+    const selectedRows = sessionStore.getState().selectedRows;
+    const container = elements.referenceContainer;
+
+    // The sheet structure is static — build it once, then patch active
+    // states and counters in place. This keeps per-keystroke renders cheap
+    // (~500 buttons untouched) and lets the wash/opacity transitions on
+    // column toggles actually run.
+    if (container.dataset.built !== "true") {
+      const tables = createKanaSelectionMatrices(referenceKana);
+      container.innerHTML = renderReferenceTables(
+        tables,
+        selectedRows,
+        enabledKana,
+      );
+      container.dataset.built = "true";
+      return;
+    }
+
+    const isColumnActive = (key) => {
+      const [script, group, column] = key.split(":");
+      return (selectedRows[`${script}:${group}`] ?? []).includes(column);
+    };
+
+    container
+      .querySelectorAll("[data-reference-column-toggle]")
+      .forEach((button) => {
+        const active = isColumnActive(button.dataset.referenceColumnToggle);
+        button.dataset.columnActive = active ? "true" : "false";
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+        button.title = `${active ? "Remove" : "Add"} ${button.dataset.latin} column`;
+      });
+
+    container.querySelectorAll("[data-cell-column]").forEach((cell) => {
+      cell.dataset.columnActive = isColumnActive(cell.dataset.cellColumn)
+        ? "true"
+        : "false";
+    });
+
+    container
+      .querySelectorAll("[data-reference-column-toggle-target]")
+      .forEach((button) => {
+        button.dataset.columnActive = isColumnActive(
+          button.dataset.referenceColumnToggleTarget,
+        )
+          ? "true"
+          : "false";
+      });
+
+    for (const script of ["hiragana", "katakana"]) {
+      const count = container.querySelector(
+        `[data-kana-sheet-count="${script}"]`,
+      );
+      if (count) {
+        const total = KANA_DATA.filter(
+          (kana) => kana.script === script,
+        ).length;
+        const active = enabledKana.filter(
+          (kana) => kana.script === script,
+        ).length;
+        count.textContent = `${active}/${total} ON`;
+      }
+    }
   }
 
   function render() {
@@ -1185,6 +1323,7 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     }
 
     suppressInputFocus = false;
+    hasRendered = true;
   }
 
   root.addEventListener("click", async (event) => {
@@ -1208,12 +1347,19 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
 
     if (button.dataset.font) {
       const sessionState = sessionStore.getState();
-      sessionStore.setState({
-        enabledFonts: ensureAtLeastOne(
-          sessionState.enabledFonts,
-          button.dataset.font,
-        ),
-      });
+      const nextFonts = ensureAtLeastOne(
+        sessionState.enabledFonts,
+        button.dataset.font,
+      );
+
+      // At least one face must stay enabled. A silent no-op would leave
+      // the tap unanswered — nudge the toggle instead.
+      if (nextFonts === sessionState.enabledFonts) {
+        replayAttributeAnimation(button, "deny");
+        return;
+      }
+
+      sessionStore.setState({ enabledFonts: nextFonts });
       render();
       return;
     }
@@ -1271,10 +1417,17 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     }
 
     if (button.dataset.referenceAudioId) {
-      await handleAudioPrompt(button.dataset.referenceAudioId, {
-        markHint: false,
-        animatePrompt: false,
-      });
+      // Color the tapped kana in the sheet's line color while its clip
+      // plays — audio alone leaves the tap without a visible response.
+      button.dataset.playing = "true";
+      try {
+        await handleAudioPrompt(button.dataset.referenceAudioId, {
+          markHint: false,
+          animatePrompt: false,
+        });
+      } finally {
+        delete button.dataset.playing;
+      }
       return;
     }
 
@@ -1331,23 +1484,55 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
   // Manual advance is always available during feedback: NEXT, Enter, or
   // Space. The document-level listener works even when nothing inside the
   // card has focus (the disabled input drops focus after answering).
+  // In aural mode, 1–6 pick a choice and R replays the clip — keyboard
+  // input is mechanical, so these paths skip straight to the action.
   document.addEventListener("keydown", (event) => {
-    if (!root.isConnected || !feedback) {
+    if (!root.isConnected || event.metaKey || event.ctrlKey || event.altKey) {
       return;
     }
 
-    if (event.key !== "Enter" && event.key !== " ") {
+    if (feedback) {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+
+      // Let a focused NEXT button handle its own click instead of firing a
+      // duplicate advance from the key event.
+      if (event.target === elements.nextButton) {
+        return;
+      }
+
+      event.preventDefault();
+      advancePrompt();
       return;
     }
 
-    // Let a focused NEXT button handle its own click instead of firing a
-    // duplicate advance from the key event.
-    if (event.target === elements.nextButton) {
+    if (
+      sessionStore.getState().mode !== "sound-to-kana" ||
+      !currentPrompt ||
+      event.target instanceof HTMLInputElement
+    ) {
       return;
     }
 
-    event.preventDefault();
-    advancePrompt();
+    if (event.key >= "1" && event.key <= "6") {
+      const choice = elements.choiceGrid.querySelectorAll("[data-choice]")[
+        Number(event.key) - 1
+      ];
+      if (choice) {
+        event.preventDefault();
+        choice.click();
+      }
+      return;
+    }
+
+    if (event.key === "r" || event.key === "R") {
+      event.preventDefault();
+      void handleAudioPrompt(currentPrompt.target.audioId, {
+        markHint: false,
+        animatePrompt: true,
+      });
+    }
   });
 
   setPrompt();
