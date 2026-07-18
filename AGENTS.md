@@ -60,5 +60,11 @@
   through `replayAttributeAnimation`, keyed to `data-deny` / `data-pop`.
 - Aural keyboard paths: 1–6 pick choices (hints render only on
   hover-capable pointers), R replays the clip; Enter/Space advance during
-  feedback. The prompt entrance animation is keyed to the alternating
-  `data-prompt-motion` value and suppressed on the very first paint.
+  feedback, and R also replays the answer during feedback in both modes.
+  The drill glyph itself is tap-to-hear (same hint rules as HEAR
+  pre-answer; free replay during feedback). The prompt entrance animation
+  is keyed to the alternating `data-prompt-motion` value and suppressed on
+  the very first paint.
+- Hover affordances live in one `@media (hover: hover) and (pointer: fine)`
+  block near the end of `styles.css`; keep new hover rules there so touch
+  devices never see them.

@@ -1035,10 +1035,14 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
       setText(elements.promptGlyph, prompt.target.glyph);
       elements.promptGlyph.dataset.kanaGroup = prompt.target.group;
       elements.promptGlyph.className = `poster-kana ${promptFont.className}`;
+      // The sheets teach "tap any kana to hear it" — the drill glyph obeys
+      // the same rule. Generic label only: the romaji would leak the answer.
+      elements.promptGlyph.title = "きく · Hear it";
     } else {
       setText(elements.promptGlyph, "");
       delete elements.promptGlyph.dataset.kanaGroup;
       elements.promptGlyph.className = "poster-kana";
+      elements.promptGlyph.removeAttribute("title");
     }
 
     // The aural answer reveal is a waveform → glyph crossfade between very
@@ -1481,6 +1485,19 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     resolveKanaTyping(event.currentTarget.value);
   });
 
+  // Tap-to-hear on the drill glyph, mirroring the sheet kana. Pre-answer in
+  // visual mode this routes through the same hint rules as HEAR (the chip
+  // appears immediately); during feedback it's a free replay of the answer.
+  elements.promptGlyph?.addEventListener("click", () => {
+    if (!currentPrompt || elements.promptGlyph.dataset.visible !== "true") {
+      return;
+    }
+
+    void handleAudioPrompt(currentPrompt.target.audioId, {
+      animatePrompt: false,
+    });
+  });
+
   // Manual advance is always available during feedback: NEXT, Enter, or
   // Space. The document-level listener works even when nothing inside the
   // card has focus (the disabled input drops focus after answering).
@@ -1492,6 +1509,18 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     }
 
     if (feedback) {
+      // The reveal moment is exactly when you want to re-listen — R
+      // replays the answer in both modes (the input is disabled, so the
+      // key is free).
+      if (event.key === "r" || event.key === "R") {
+        event.preventDefault();
+        void handleAudioPrompt(currentPrompt?.target.audioId, {
+          markHint: false,
+          animatePrompt: false,
+        });
+        return;
+      }
+
       if (event.key !== "Enter" && event.key !== " ") {
         return;
       }

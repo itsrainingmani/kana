@@ -306,6 +306,68 @@ describe("drill flow", () => {
     randomSpy.mockRestore();
   });
 
+  it("plays the prompt audio when the glyph is tapped and marks the hint", () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    createApp(document.querySelector("#app"));
+
+    expect(document.querySelector('[data-slot="hint-chip"]')?.hidden).toBe(
+      true,
+    );
+
+    document
+      .querySelector('[data-slot="prompt-glyph"]')
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(MockAudio.instances).toHaveLength(1);
+    expect(document.querySelector('[data-slot="hint-chip"]')?.hidden).toBe(
+      false,
+    );
+
+    typeAnswer(FIRST_BASE_ROMAJI);
+
+    expect(
+      document
+        .querySelector('[data-slot="status-message"]')
+        ?.getAttribute("data-tone"),
+    ).toBe("assisted");
+
+    randomSpy.mockRestore();
+  });
+
+  it("replays the answer audio with R or a glyph tap during feedback", () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    createApp(document.querySelector("#app"));
+
+    typeAnswer(FIRST_BASE_ROMAJI);
+    expect(
+      document
+        .querySelector('[data-slot="status-message"]')
+        ?.getAttribute("data-tone"),
+    ).toBe("correct");
+    expect(MockAudio.instances).toHaveLength(0);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "r", bubbles: true }),
+    );
+    expect(MockAudio.instances).toHaveLength(1);
+
+    document
+      .querySelector('[data-slot="prompt-glyph"]')
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(MockAudio.instances).toHaveLength(2);
+
+    // Replaying never counts as a hint after grading.
+    expect(
+      document
+        .querySelector('[data-slot="status-message"]')
+        ?.getAttribute("data-tone"),
+    ).toBe("correct");
+
+    randomSpy.mockRestore();
+  });
+
   it("patches the choice cards in place on feedback instead of rebuilding them", async () => {
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
 

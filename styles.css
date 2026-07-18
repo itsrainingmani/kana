@@ -143,6 +143,12 @@ button {
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
+  /* No double-tap-zoom heuristics between rapid drill taps. */
+  touch-action: manipulation;
+}
+
+::selection {
+  background: rgba(200, 33, 23, 0.16);
 }
 
 /* Branded focus ring for keyboard navigation; the answer input signals
@@ -508,6 +514,16 @@ button:focus-visible {
   line-height: 0.9;
   text-align: center;
   white-space: nowrap;
+  /* The glyph is tap-to-hear, like every kana on the sheets. */
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform 100ms ease;
+}
+
+.poster-kana:active {
+  transform: scale(0.97);
 }
 
 .poster-kana[data-kana-group='combination'] {
@@ -740,6 +756,7 @@ button:focus-visible {
   padding: 6px 2px 8px;
   outline: none;
   border-radius: 0;
+  caret-color: var(--vermillion);
 }
 
 .answer-input::placeholder {
@@ -1403,6 +1420,55 @@ button:focus-visible {
 
 .font-dot {
   font-family: 'Kana Dot JP', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+}
+
+/* ------------------------------------------------------------------ */
+/* Hover affordance (hover-capable pointers only)                      */
+/* ------------------------------------------------------------------ */
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-tab[data-active='false']:hover,
+  .font-toggle[data-active='false']:hover {
+    border-color: rgba(26, 24, 21, 0.55);
+  }
+
+  .font-toggle[data-active='false']:hover {
+    color: var(--ink);
+  }
+
+  .choice-card:not(:disabled):hover {
+    border-color: rgba(26, 24, 21, 0.6);
+  }
+
+  .action-button:hover,
+  .ghost-button:hover {
+    background: var(--paper);
+  }
+
+  .next-button:hover {
+    filter: brightness(1.08);
+  }
+
+  .audio-poster-button:hover .audio-replay-caption {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .poster-kana:hover:not(:active) {
+    transform: scale(1.01);
+  }
+
+  .reference-column-toggle[data-column-active='false']:hover {
+    opacity: 0.68;
+  }
+
+  .reference-glyph:hover {
+    color: var(--sheet-color);
+  }
+
+  .reference-link-action:hover {
+    color: var(--vermillion);
+  }
 }
 
 /* ------------------------------------------------------------------ */
