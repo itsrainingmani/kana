@@ -225,7 +225,7 @@ button:focus-visible {
     max-width: 1100px;
     padding: 56px 24px 104px;
     gap: 32px 64px;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.94fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.88fr);
     grid-template-rows: auto auto auto auto auto 1fr;
     grid-template-areas:
       'mast mast'
@@ -1033,6 +1033,12 @@ button:focus-visible {
   line-height: 1;
 }
 
+@media (min-width: 780px) {
+  .stats-value {
+    font-size: 30px;
+  }
+}
+
 .stats-label {
   margin: 0;
   display: grid;
@@ -1123,6 +1129,20 @@ button:focus-visible {
   /* In the desktop rail the sheets align with the mode tabs' band. */
   .kana-sheets {
     margin-top: 0;
+    position: relative;
+  }
+
+  /* The rail title runs vertically down the gutter, magazine-folio style. */
+  .sheets-title__jp {
+    position: absolute;
+    top: 76px;
+    left: -58px;
+    writing-mode: vertical-rl;
+    font-size: 38px;
+    letter-spacing: 0.24em;
+    line-height: 1;
+    color: rgba(26, 24, 21, 0.2);
+    pointer-events: none;
   }
 }
 
@@ -1163,18 +1183,17 @@ button:focus-visible {
 
 .reference-panel__body {
   display: grid;
-  gap: 20px;
+  gap: 28px;
 }
 
+/* Sheets print as open tables — the metro-line rule and badge carry the
+   identity; only the drill card keeps panel chrome. */
 .kana-sheet {
   --sheet-color: var(--vermillion);
   --sheet-wash-6: var(--wash-red-06);
   --sheet-wash-5: var(--wash-red-05);
-  background: var(--card);
-  border: 1.5px solid var(--card-border);
   border-top: 5px solid var(--sheet-color);
-  border-radius: 2px;
-  padding: 16px 14px 18px;
+  padding: 14px 0 0;
   display: grid;
   gap: 16px;
 }
@@ -1190,7 +1209,6 @@ button:focus-visible {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 0 4px;
 }
 
 .kana-sheet__id {
@@ -1246,7 +1264,6 @@ button:focus-visible {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 0 4px;
 }
 
 .kana-matrix__label {
