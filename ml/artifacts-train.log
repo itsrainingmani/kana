@@ -1,0 +1,6 @@
+arch=kwnet1 params=115646 classes=382
+/home/user/kana/ml/train.py:146: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:822.)
+  running_loss += float(loss)
+epoch 00 loss 3.7967 val 75.97% *
+epoch 01 loss 1.2862 val 91.84% *
