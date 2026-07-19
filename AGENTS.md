@@ -28,9 +28,10 @@
   wait on CSS to discover them.
 - `scripts/build-audio-assets.mjs` produces 100-bucket waveform data;
   `src/waveform-view.js` renders every bucket as a hairline bar
-  (`WAVEFORM_BAR_COUNT` = 100) on the dark player panel — silence
-  collapses to center dots, playback sweeps an accent fill plus a cursor
-  with a gradient wake (waveform language after destruct.dev). New
+  (`WAVEFORM_BAR_COUNT` = 100) on a player panel that mirrors the OS
+  color scheme (CSS swaps the panel ground, the canvas swaps its bar
+  palette) — silence collapses to center dots, playback sweeps an accent
+  fill plus a cursor with a gradient wake (language after destruct.dev). New
   syllables print in via per-bar critically-damped springs on a
   self-terminating rAF loop; `prefers-reduced-motion` snaps to end
   states. `app.js` only feeds it bars/playback events.

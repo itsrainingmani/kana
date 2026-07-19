@@ -33,10 +33,22 @@ const SETTLE_EPSILON = 0.004;
 // Trailing wake behind the cursor, as a fraction of the stage width.
 const WAKE_WIDTH = 0.1;
 
-// Panel palette: warm off-white hairlines on the near-black panel; played
-// bars and the cursor take a metro blue brightened for the dark ground.
-const IDLE_COLOR = { r: 250, g: 249, b: 246, a: 0.55 };
-const PLAYED_COLOR = { r: 92, g: 175, b: 232, a: 1 };
+// The panel mirrors the OS color scheme (the CSS swaps the panel ground
+// via the same media query): muted ink hairlines with the metro blue on
+// the light paper inset; warm off-white hairlines with a brightened blue
+// on the near-black panel.
+const PALETTES = {
+  light: {
+    idle: { r: 26, g: 24, b: 21, a: 0.3 },
+    played: { r: 20, g: 102, b: 158, a: 1 },
+    wakeAlpha: 0.12,
+  },
+  dark: {
+    idle: { r: 250, g: 249, b: 246, a: 0.55 },
+    played: { r: 92, g: 175, b: 232, a: 1 },
+    wakeAlpha: 0.14,
+  },
+};
 
 export function resampleWaveform(values, sampleCount = WAVEFORM_BAR_COUNT) {
   if (!Array.isArray(values) || values.length === 0) {
@@ -54,19 +66,20 @@ export function resampleWaveform(values, sampleCount = WAVEFORM_BAR_COUNT) {
   });
 }
 
-function sweepColor(coverage) {
+function sweepColor(coverage, palette) {
+  const { idle, played } = palette;
   const t = Math.min(1, Math.max(0, coverage));
-  const r = Math.round(IDLE_COLOR.r + (PLAYED_COLOR.r - IDLE_COLOR.r) * t);
-  const g = Math.round(IDLE_COLOR.g + (PLAYED_COLOR.g - IDLE_COLOR.g) * t);
-  const b = Math.round(IDLE_COLOR.b + (PLAYED_COLOR.b - IDLE_COLOR.b) * t);
-  const a =
-    Math.round((IDLE_COLOR.a + (PLAYED_COLOR.a - IDLE_COLOR.a) * t) * 1000) /
-    1000;
+  const r = Math.round(idle.r + (played.r - idle.r) * t);
+  const g = Math.round(idle.g + (played.g - idle.g) * t);
+  const b = Math.round(idle.b + (played.b - idle.b) * t);
+  const a = Math.round((idle.a + (played.a - idle.a) * t) * 1000) / 1000;
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
-const ACCENT = `rgba(${PLAYED_COLOR.r}, ${PLAYED_COLOR.g}, ${PLAYED_COLOR.b}, 1)`;
-const ACCENT_WAKE = `rgba(${PLAYED_COLOR.r}, ${PLAYED_COLOR.g}, ${PLAYED_COLOR.b}, 0.14)`;
+function accentColor(palette, alpha = 1) {
+  const { played } = palette;
+  return `rgba(${played.r}, ${played.g}, ${played.b}, ${alpha})`;
+}
 
 let reducedMotionQuery = null;
 
@@ -98,6 +111,19 @@ export function createWaveformView(canvas, options = {}) {
       : clearTimeout);
   const prefersReducedMotion =
     options.prefersReducedMotion ?? defaultPrefersReducedMotion;
+
+  // The bar colors mirror the OS scheme alongside the CSS panel ground; a
+  // scheme flip while the view sits idle repaints without any playback.
+  let darkQuery = null;
+  if (
+    options.prefersDark === undefined &&
+    typeof globalThis.matchMedia === "function"
+  ) {
+    darkQuery = globalThis.matchMedia("(prefers-color-scheme: dark)");
+    darkQuery.addEventListener?.("change", () => draw());
+  }
+  const prefersDark =
+    options.prefersDark ?? (() => Boolean(darkQuery?.matches));
 
   let rest = []; // settled bar amplitudes (0..1)
   let pendingRest = null; // staggered print-in targets not yet picked up
@@ -223,6 +249,7 @@ export function createWaveformView(canvas, options = {}) {
       return;
     }
 
+    const palette = prefersDark() ? PALETTES.dark : PALETTES.light;
     const halfHeight = height * 0.5;
     const xGap = width / barCount;
     // Hairline bars; round caps collapse silent buckets into center dots.
@@ -234,7 +261,7 @@ export function createWaveformView(canvas, options = {}) {
       const amplitude = Math.min(1, Math.max(0, heights[index]));
       const barHeight = halfHeight * 0.92 * amplitude;
       const coverage = progress * barCount - index;
-      ctx.strokeStyle = sweepColor(coverage);
+      ctx.strokeStyle = sweepColor(coverage, palette);
       ctx.beginPath();
       ctx.moveTo(barX, halfHeight - barHeight);
       ctx.lineTo(barX, halfHeight + barHeight);
@@ -252,8 +279,8 @@ export function createWaveformView(canvas, options = {}) {
         cursorX,
         0,
       );
-      wake.addColorStop(0, "rgba(0, 0, 0, 0)");
-      wake.addColorStop(1, ACCENT_WAKE);
+      wake.addColorStop(0, accentColor(palette, 0));
+      wake.addColorStop(1, accentColor(palette, palette.wakeAlpha));
       ctx.fillStyle = wake;
       ctx.fillRect(
         cursorX - WAKE_WIDTH * width,
@@ -262,7 +289,7 @@ export function createWaveformView(canvas, options = {}) {
         height * 0.95,
       );
 
-      ctx.strokeStyle = ACCENT;
+      ctx.strokeStyle = accentColor(palette);
       ctx.lineWidth = Math.max(1, dpr);
       ctx.lineCap = "butt";
       ctx.beginPath();

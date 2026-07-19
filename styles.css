@@ -602,8 +602,10 @@ button:focus-visible {
   display: none;
 }
 
-/* Dark sample-player panel (waveform language after destruct.dev): dense
-   hairline bars on a warm near-black ground with a faint dot grid. */
+/* Sample-player panel (waveform language after destruct.dev): dense
+   hairline bars on a recessed inset with a faint dot grid. The panel
+   ground mirrors the OS color scheme — warm paper by default, warm
+   near-black in dark mode (the canvas swaps its bar palette to match). */
 .audio-waveform {
   position: relative;
   width: min(100%, 340px);
@@ -612,14 +614,25 @@ button:focus-visible {
   box-sizing: border-box;
   padding: 10px 12px;
   border-radius: 4px;
-  background-color: #131211;
+  background-color: var(--paper);
   background-image: radial-gradient(
-    rgba(252, 251, 247, 0.07) 0.5px,
+    rgba(26, 24, 21, 0.14) 0.5px,
     transparent 0.6px
   );
   background-size: 9px 9px;
   background-position: center;
-  border: 1px solid rgba(26, 24, 21, 0.55);
+  border: 1px solid var(--hairline);
+}
+
+@media (prefers-color-scheme: dark) {
+  .audio-waveform {
+    background-color: #131211;
+    background-image: radial-gradient(
+      rgba(252, 251, 247, 0.07) 0.5px,
+      transparent 0.6px
+    );
+    border-color: rgba(26, 24, 21, 0.55);
+  }
 }
 
 .audio-waveform__canvas {
