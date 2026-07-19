@@ -6,4 +6,7 @@ test-results
 .DS_Store
 __pycache__/
 *.py[cod]
-ml/
+ml/.venv/
+ml/artifacts/
+ml/data/generated/
+ml/artifacts-train.log

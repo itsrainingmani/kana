@@ -25,7 +25,7 @@ test('cycles through the main training modes', async ({ page }) => {
   const readColumns = async (selector) =>
     page.locator(selector).evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length);
 
-  await expect(page.locator('[data-mode-group] > button')).toHaveCount(2);
+  await expect(page.locator('[data-mode-group] > button')).toHaveCount(3);
   await expect(page.locator('[data-font-group] > button')).toHaveCount(5);
   expect(await readColumns('[data-mode-group]')).toBeGreaterThanOrEqual(2);
   expect(await readColumns('[data-font-group]')).toBe(5);
