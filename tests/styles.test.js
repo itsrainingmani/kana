@@ -41,15 +41,14 @@ describe('interaction styles', () => {
     expect(waveformBlock).toContain('height: 4rem;');
   });
 
-  it('sweeps the waveform bars continuously without a separate cursor line', () => {
+  it('sweeps the waveform continuously with a playhead cursor and wake', () => {
     const viewSource = readFileSync('src/waveform-view.js', 'utf8');
-    const appSource = readFileSync('src/app.js', 'utf8');
 
-    expect(appSource).not.toContain('cursorX');
-    expect(viewSource).not.toContain('cursorX');
-    // Sub-bar coverage blends the playhead color instead of stepping whole
-    // bars, and per-bar springs (not fixed durations) drive the heights.
+    // Sub-bar coverage blends the sweep color instead of stepping whole
+    // bars; the playhead is a hairline cursor with a trailing gradient
+    // wake (after destruct.dev), and per-bar springs drive the print-in.
     expect(viewSource).toContain('const coverage = progress * barCount - index;');
+    expect(viewSource).toContain('createLinearGradient');
     expect(viewSource).toContain('const STIFFNESS');
     expect(viewSource).toContain('const DAMPING');
   });
