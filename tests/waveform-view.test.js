@@ -5,8 +5,12 @@ import {
   resampleWaveform,
 } from "../src/waveform-view.js";
 
+// Dark-scheme palette (the harness below pins the scheme to dark).
 const IDLE = "rgba(250, 249, 246, 0.55)";
 const PLAYED = "rgba(92, 175, 232, 1)";
+// Light-scheme palette: muted ink hairlines, metro blue accent.
+const IDLE_LIGHT = "rgba(26, 24, 21, 0.3)";
+const PLAYED_LIGHT = "rgba(20, 102, 158, 1)";
 
 function createStubCanvas() {
   const strokes = [];
@@ -90,6 +94,7 @@ function createHarnessView(canvas, extraOptions = {}) {
     scheduleFrame: frames.scheduleFrame,
     cancelFrame: frames.cancelFrame,
     prefersReducedMotion: () => false,
+    prefersDark: () => true,
     ...extraOptions,
   });
   return { view, frames };
@@ -259,6 +264,22 @@ describe("createWaveformView", () => {
     // The informational sweep still advances, but no bar moves.
     expect(view.inspect().progress).toBeGreaterThan(0);
     expect(view.inspect().heights).toEqual([0.2, 0.2, 0.2]);
+  });
+
+  it("mirrors the light scheme with ink hairlines and the metro blue", () => {
+    const canvas = createStubCanvas();
+    const { view, frames } = createHarnessView(canvas, {
+      prefersDark: () => false,
+    });
+
+    view.setBars([0.5, 0.5], { animate: false, duration: 100 });
+    view.beginPlayback();
+    frames.tick(0);
+    frames.tick(50); // progress 0.5: first bar played, second idle
+
+    expect(canvas.strokes[0].style).toBe(PLAYED_LIGHT);
+    expect(canvas.strokes[1].style).toBe(IDLE_LIGHT);
+    expect(canvas.strokes.at(-1).style).toBe(PLAYED_LIGHT); // cursor
   });
 
   it("clears to an empty canvas and stops animating", () => {
