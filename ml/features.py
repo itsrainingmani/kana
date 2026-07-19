@@ -5,7 +5,7 @@ the JS inference engine (src/write/recognizer-features.js). Any change here
 is a breaking model-format change: bump FEATURE_VERSION, retrain, and mirror
 the change in JS (the golden-vector parity test in tests/ enforces this).
 
-Spec (FEATURE_VERSION 1):
+Spec (FEATURE_VERSION 2):
   input: strokes = [[(x, y), ...], ...] in any coordinate space, y down.
   1. Normalize: bounding box of all points; scale by the larger side so the
      drawing fits a unit box centered at (0.5, 0.5), aspect preserved.
@@ -17,14 +17,17 @@ Spec (FEATURE_VERSION 1):
                 bilinearly splatted at the segment midpoint;
        ch 8     stroke endpoints (first + last point of every stroke),
                 weight 1.0, bilinearly splatted.
-  4. Divide the whole tensor by its max (if positive).
+  4. Normalize the direction channels (0..7) by their joint max and the
+     endpoint channel by its own max. (v1 divided everything by the global
+     max; endpoint splats are ~20x heavier than direction cells, which
+     crushed the direction features into a sliver of the dynamic range.)
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-FEATURE_VERSION = 1
+FEATURE_VERSION = 2
 GRID = 24
 CHANNELS = 9
 STEP = 0.02
@@ -115,7 +118,10 @@ def extract_features(strokes: list[np.ndarray]) -> np.ndarray:
         _splat(tensor, 8, float(pts[0, 0]), float(pts[0, 1]), 1.0)
         _splat(tensor, 8, float(pts[-1, 0]), float(pts[-1, 1]), 1.0)
 
-    peak = tensor.max()
-    if peak > 1e-6:
-        tensor /= peak
+    direction_peak = tensor[:8].max()
+    if direction_peak > 1e-6:
+        tensor[:8] /= direction_peak
+    endpoint_peak = tensor[8].max()
+    if endpoint_peak > 1e-6:
+        tensor[8] /= endpoint_peak
     return tensor.astype(np.float32)

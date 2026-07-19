@@ -24,6 +24,8 @@ HOMOGLYPH_GROUPS = [
     "タ夕",  # katakana ta / kanji evening
     "ハ八",  # katakana ha / kanji eight
     "オ才",  # katakana o / kanji talent
+    "りリ",  # hiragana / katakana ri — handwritten り routinely drops the
+             # connecting hook, collapsing onto リ
 ]
 
 

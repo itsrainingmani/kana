@@ -177,6 +177,12 @@ def synthesize(
     pts = np.concatenate(strokes, axis=0)
     center = (pts.min(axis=0) + pts.max(axis=0)) / 2.0
 
+    # Per-stroke rigid jitter models *inter-stroke* placement variance; a
+    # one-stroke glyph has none (its whole-glyph variance is the global
+    # affine), and compounding both used to tilt し/く/ん into each other
+    # far beyond anything a learner writes.
+    stroke_jitter = min(1.0, (len(strokes) - 1) / 3.0)
+
     theta = np.deg2rad(_clipped_normal(rng, config.rotate_std, config.rotate_max))
     shear = _clipped_normal(rng, config.shear_std, config.shear_max)
     sx = rng.uniform(config.scale_lo, config.scale_hi)
@@ -205,19 +211,25 @@ def synthesize(
             rng.uniform(config.end_trim_lo, config.end_trim_hi),
         )
 
-        # Per-stroke rigid jitter about the stroke centroid.
+        # Per-stroke rigid jitter about the stroke centroid, scaled down for
+        # glyphs with few strokes (see stroke_jitter above). The random draws
+        # stay unconditional so seeds keep producing the same stream.
         centroid = s.mean(axis=0)
         phi = np.deg2rad(
             _clipped_normal(rng, config.stroke_rotate_std, config.stroke_rotate_max)
-        )
+        ) * stroke_jitter
         cos_p, sin_p = np.cos(phi), np.sin(phi)
-        stroke_scale = rng.uniform(config.stroke_scale_lo, config.stroke_scale_hi)
+        base_scale = rng.uniform(config.stroke_scale_lo, config.stroke_scale_hi)
+        stroke_scale = 1.0 + (base_scale - 1.0) * stroke_jitter
         local = (s - centroid) @ np.array([[cos_p, -sin_p], [sin_p, cos_p]]).T * stroke_scale
-        shift = np.array(
-            [
-                _clipped_normal(rng, config.stroke_shift_std, config.stroke_shift_max),
-                _clipped_normal(rng, config.stroke_shift_std, config.stroke_shift_max),
-            ]
+        shift = (
+            np.array(
+                [
+                    _clipped_normal(rng, config.stroke_shift_std, config.stroke_shift_max),
+                    _clipped_normal(rng, config.stroke_shift_std, config.stroke_shift_max),
+                ]
+            )
+            * stroke_jitter
         )
         s = local + centroid + shift
 

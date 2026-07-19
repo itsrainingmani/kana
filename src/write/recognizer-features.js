@@ -4,7 +4,7 @@
 // clamping); tests/write-parity.test.js checks them against golden vectors
 // exported from the Python side. Any change requires a version bump + retrain.
 
-export const FEATURE_VERSION = 1;
+export const FEATURE_VERSION = 2;
 export const FEATURE_GRID = 24;
 export const FEATURE_CHANNELS = 9;
 export const FEATURE_STEP = 0.02;
@@ -149,15 +149,30 @@ export function extractFeatures(strokes) {
     splatInto(8, last[0], last[1], 1);
   }
 
-  let peak = 0;
-  for (let index = 0; index < accumulator.length; index += 1) {
-    if (accumulator[index] > peak) {
-      peak = accumulator[index];
+  // v2 normalization: direction channels share one max, the endpoint
+  // channel has its own — endpoint splats are far heavier per cell and a
+  // joint max would crush the direction features (see ml/features.py).
+  const endpointBase = 8 * FEATURE_GRID * FEATURE_GRID;
+  let directionPeak = 0;
+  for (let index = 0; index < endpointBase; index += 1) {
+    if (accumulator[index] > directionPeak) {
+      directionPeak = accumulator[index];
     }
   }
-  if (peak > 1e-6) {
-    for (let index = 0; index < accumulator.length; index += 1) {
-      tensor[index] = accumulator[index] / peak;
+  if (directionPeak > 1e-6) {
+    for (let index = 0; index < endpointBase; index += 1) {
+      tensor[index] = accumulator[index] / directionPeak;
+    }
+  }
+  let endpointPeak = 0;
+  for (let index = endpointBase; index < accumulator.length; index += 1) {
+    if (accumulator[index] > endpointPeak) {
+      endpointPeak = accumulator[index];
+    }
+  }
+  if (endpointPeak > 1e-6) {
+    for (let index = endpointBase; index < accumulator.length; index += 1) {
+      tensor[index] = accumulator[index] / endpointPeak;
     }
   }
   return tensor;
