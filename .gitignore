@@ -9,3 +9,4 @@ __pycache__/
 ml/.venv/
 ml/artifacts/
 ml/data/generated/
+ml/artifacts-train.log
