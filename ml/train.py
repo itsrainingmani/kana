@@ -17,6 +17,8 @@ import numpy as np
 import torch
 from torch import nn
 
+from homoglyphs import build_group_index
+
 ROOT = Path(__file__).resolve().parent
 GENERATED = ROOT / "data" / "generated"
 ARTIFACTS = ROOT / "artifacts"
@@ -61,25 +63,38 @@ class FeatureDataset(torch.utils.data.Dataset):
 
 
 @torch.no_grad()
-def evaluate(model: nn.Module, loader) -> float:
+def evaluate(model: nn.Module, loader, group_lookup: torch.Tensor | None = None) -> float:
+    """Top-1 accuracy; with group_lookup, homoglyph-group-aware accuracy
+    (predicting the visually identical twin counts as a hit)."""
     model.eval()
     correct = 0
     total = 0
     for features, targets in loader:
         predictions = model(features).argmax(dim=1)
-        correct += int((predictions == targets).sum())
+        if group_lookup is not None:
+            correct += int((group_lookup[predictions] == group_lookup[targets]).sum())
+        else:
+            correct += int((predictions == targets).sum())
         total += len(targets)
     return correct / max(total, 1)
 
 
+def group_lookup_tensor(labels: list[str]) -> torch.Tensor:
+    index = build_group_index(labels)
+    return torch.tensor([index[i] for i in range(len(labels))], dtype=torch.long)
+
+
 @torch.no_grad()
 def top_confusions(model: nn.Module, loader, labels: list[str], k: int = 12):
+    """Most-frequent confusions, excluding intra-homoglyph-group pairs
+    (those are unresolvable by design)."""
     model.eval()
+    lookup = group_lookup_tensor(labels)
     pairs: dict[tuple[int, int], int] = {}
     for features, targets in loader:
         predictions = model(features).argmax(dim=1)
         for t, p in zip(targets.tolist(), predictions.tolist()):
-            if t != p:
+            if t != p and lookup[t] != lookup[p]:
                 pairs[(t, p)] = pairs.get((t, p), 0) + 1
     ranked = sorted(pairs.items(), key=lambda item: -item[1])[:k]
     return [(labels[t], labels[p], n) for (t, p), n in ranked]
@@ -91,7 +106,10 @@ def main() -> None:
     parser.add_argument("--batch", type=int, default=256)
     parser.add_argument("--lr", type=float, default=3e-3)
     parser.add_argument("--arch", default="kwnet1")
-    parser.add_argument("--patience", type=int, default=6)
+    # Early stop is off by default: with a cosine schedule the mid-run val
+    # dips (while LR is still high) are expected, and stopping there ships a
+    # half-trained model.
+    parser.add_argument("--patience", type=int, default=10_000)
     args = parser.parse_args()
 
     torch.manual_seed(7)
@@ -123,6 +141,7 @@ def main() -> None:
 
     model = build_model(args.arch, len(labels))
     params = sum(p.numel() for p in model.parameters())
+    lookup = group_lookup_tensor(labels)
     print(f"arch={args.arch} params={params} classes={len(labels)}", flush=True)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
@@ -147,7 +166,7 @@ def main() -> None:
             batches += 1
         scheduler.step()
 
-        val_acc = evaluate(model, val_loader)
+        val_acc = evaluate(model, val_loader, lookup)
         history.append({"epoch": epoch, "loss": running_loss / batches, "val_acc": val_acc})
         marker = ""
         if val_acc > best_acc:
@@ -170,8 +189,13 @@ def main() -> None:
 
     checkpoint = torch.load(ARTIFACTS / f"{args.arch}.pt", weights_only=True)
     model.load_state_dict(checkpoint["state_dict"])
-    stress_acc = evaluate(model, stress_loader)
-    print(f"best val {best_acc * 100:.2f}% | stress {stress_acc * 100:.2f}%", flush=True)
+    raw_val = evaluate(model, val_loader)
+    stress_acc = evaluate(model, stress_loader, lookup)
+    print(
+        f"best val (grouped) {best_acc * 100:.2f}% | raw {raw_val * 100:.2f}% "
+        f"| stress (grouped) {stress_acc * 100:.2f}%",
+        flush=True,
+    )
     print("top confusions (val):", flush=True)
     for expected, predicted, count in top_confusions(model, val_loader, labels):
         print(f"  {expected} -> {predicted}: {count}", flush=True)

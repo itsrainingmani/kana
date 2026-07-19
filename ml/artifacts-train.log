@@ -4,3 +4,26 @@ Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pyto
   running_loss += float(loss)
 epoch 00 loss 3.7967 val 75.97% *
 epoch 01 loss 1.2862 val 91.84% *
+epoch 02 loss 1.0148 val 93.94% *
+epoch 03 loss 0.9152 val 94.16% *
+epoch 04 loss 0.8578 val 92.53%
+epoch 05 loss 0.8196 val 94.08%
+epoch 06 loss 0.7931 val 92.30%
+epoch 07 loss 0.7703 val 89.46%
+epoch 08 loss 0.7546 val 83.93%
+epoch 09 loss 0.7424 val 83.04%
+early stop
+best val 94.16% | stress 59.17%
+top confusions (val):
+  ベ -> べ: 38
+  ニ -> 二: 35
+  エ -> 工: 34
+  ロ -> 口: 30
+  へ -> ヘ: 27
+  ぺ -> ペ: 24
+  コ -> 口: 18
+  ヘ -> へ: 12
+  ぽ -> ぼ: 9
+  カ -> 力: 9
+  ね -> ぬ: 8
+  ね -> れ: 7

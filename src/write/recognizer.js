@@ -202,6 +202,16 @@ export function createRecognizerFromBuffer(buffer) {
   const { header, layers } = parseModel(buffer);
   const labelIndex = new Map(header.labels.map((label, index) => [label, index]));
 
+  // Homoglyph groups (e.g. へ/ヘ, カ/力): visually identical characters the
+  // classifier cannot — and should not — separate. Grading treats a
+  // prediction inside the target's group as recognizing the target.
+  const homoglyphOf = new Map();
+  for (const group of header.homoglyphs ?? []) {
+    for (const char of group) {
+      homoglyphOf.set(char, group);
+    }
+  }
+
   function infer(features) {
     let activations = features;
     let size = FEATURE_GRID;
@@ -245,6 +255,17 @@ export function createRecognizerFromBuffer(buffer) {
     },
     indexOfLabel(label) {
       return labelIndex.get(label) ?? -1;
+    },
+    equivalent(a, b) {
+      if (a === b) {
+        return true;
+      }
+      const group = homoglyphOf.get(a);
+      return Boolean(group && group.includes(b));
+    },
+    homoglyphTwins(label) {
+      const group = homoglyphOf.get(label);
+      return group ? [...group].filter((char) => char !== label) : [];
     }
   };
 }

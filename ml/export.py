@@ -30,8 +30,9 @@ import torch
 from torch import nn
 
 from features import CHANNELS, FEATURE_VERSION, GRID, STEP, extract_features
+from homoglyphs import HOMOGLYPH_GROUPS
 from synth import TRAIN_CONFIG, synthesize
-from train import FeatureDataset, build_model, evaluate
+from train import FeatureDataset, build_model, evaluate, group_lookup_tensor
 
 ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parent
@@ -113,6 +114,7 @@ def export_binary(model: nn.Module, labels: list[str], arch: str, metrics: dict)
         "channels": CHANNELS,
         "step": STEP,
         "labels": labels,
+        "homoglyphs": HOMOGLYPH_GROUPS,
         "layers": specs,
         "metrics": metrics,
     }
@@ -142,7 +144,12 @@ def export_golden(model: nn.Module, labels: list[str], chars: dict) -> None:
     for golden_index, glyph in enumerate(GOLDEN_CHARS):
         strokes = [np.asarray(s, dtype=np.float64) for s in chars[glyph]]
         rng = np.random.default_rng([424242, golden_index])
-        sample = synthesize(strokes, rng, TRAIN_CONFIG)
+        # Features/logits are computed from the *rounded* strokes so the JSON
+        # fixture is self-consistent for the JS side.
+        sample = [
+            np.round(np.asarray(s, dtype=np.float64), 3)
+            for s in synthesize(strokes, rng, TRAIN_CONFIG)
+        ]
         features = extract_features(sample)
         with torch.no_grad():
             logits = model(torch.from_numpy(features[None]))[0].numpy()
@@ -184,13 +191,14 @@ def main() -> None:
     val_loader = torch.utils.data.DataLoader(FeatureDataset(x_val, y_val), batch_size=512)
     stress_loader = torch.utils.data.DataLoader(FeatureDataset(x_stress, y_stress), batch_size=512)
 
-    float_val = evaluate(model, val_loader)
+    lookup = group_lookup_tensor(labels)
+    float_val = evaluate(model, val_loader, lookup)
     quantized = dequantized_copy(model)
-    quant_val = evaluate(quantized, val_loader)
-    quant_stress = evaluate(quantized, stress_loader)
+    quant_val = evaluate(quantized, val_loader, lookup)
+    quant_stress = evaluate(quantized, stress_loader, lookup)
     print(
         f"val float {float_val * 100:.2f}% | int8 {quant_val * 100:.2f}% "
-        f"| stress int8 {quant_stress * 100:.2f}%"
+        f"| stress int8 {quant_stress * 100:.2f}% (homoglyph-grouped)"
     )
     if float_val - quant_val > 0.005:
         raise SystemExit("quantization cost more than 0.5% accuracy — refusing to export")

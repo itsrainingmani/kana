@@ -1,7 +1,11 @@
 const SESSION_KEY = 'kana-trainer-session';
 const PROGRESS_KEY = 'kana-trainer-progress';
-const ALLOWED_MODES = new Set(['kana-to-sound', 'sound-to-kana']);
+const ALLOWED_MODES = new Set(['kana-to-sound', 'sound-to-kana', 'write']);
 const ALLOWED_OUTCOMES = new Set(['correct', 'incorrect', 'assisted', 'partial']);
+const ALLOWED_WRITE_ASSISTS = new Set(['auto', 'trace', 'guided', 'recall']);
+// Kanji selection granularity: curriculum-ordered groups of ten, e.g. "g1:0"
+// is the first ten grade-1 kanji (see src/write/write-data.js).
+const KANJI_GROUP_PATTERN = /^g[12]:\d{1,2}$/;
 const DEFAULT_FONTS = ['gothic', 'mincho', 'rounded', 'magic', 'dot'];
 const DEFAULT_BASE_ROWS = ['vowels', 'k', 's', 't', 'n', 'h', 'm', 'y', 'r', 'w', 'nn'];
 const SHEET_KEYS = [
@@ -22,6 +26,8 @@ const DEFAULT_SESSION = {
   mode: 'kana-to-sound',
   selectedRows: DEFAULT_SELECTED_ROWS,
   enabledFonts: [...DEFAULT_FONTS],
+  selectedKanjiGroups: ['g1:0'],
+  writeAssist: 'auto',
   streak: 0
 };
 
@@ -54,8 +60,21 @@ function cloneSessionState(state) {
     selectedRows: Object.fromEntries(
       Object.entries(state.selectedRows).map(([key, rows]) => [key, [...rows]])
     ),
-    enabledFonts: [...state.enabledFonts]
+    enabledFonts: [...state.enabledFonts],
+    selectedKanjiGroups: [...(state.selectedKanjiGroups ?? [])]
   };
+}
+
+function sanitizeKanjiGroups(value) {
+  if (!Array.isArray(value)) {
+    return [...DEFAULT_SESSION.selectedKanjiGroups];
+  }
+
+  return [...new Set(value.filter((item) => typeof item === 'string' && KANJI_GROUP_PATTERN.test(item)))];
+}
+
+function sanitizeWriteAssist(value) {
+  return ALLOWED_WRITE_ASSISTS.has(value) ? value : DEFAULT_SESSION.writeAssist;
 }
 
 function sanitizeSelectedRows(value) {
@@ -128,6 +147,8 @@ function normalizeSessionState(state = {}) {
     mode,
     selectedRows: migrateLegacySelections(state),
     enabledFonts: sanitizeStringArray(state.enabledFonts, DEFAULT_SESSION.enabledFonts),
+    selectedKanjiGroups: sanitizeKanjiGroups(state.selectedKanjiGroups),
+    writeAssist: sanitizeWriteAssist(state.writeAssist),
     streak: sanitizeStreak(state.streak)
   };
 }

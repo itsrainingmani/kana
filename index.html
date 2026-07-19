@@ -93,6 +93,19 @@
                         <span class="mode-tab__en">Aural</span>
                     </span>
                 </button>
+                <button
+                    class="mode-tab mode-tab--write"
+                    data-mode="write"
+                    data-active="false"
+                    aria-pressed="false"
+                    type="button"
+                >
+                    <span class="mode-tab__badge" aria-hidden="true">W</span>
+                    <span class="mode-tab__labels">
+                        <span class="mode-tab__jp" lang="ja">かく</span>
+                        <span class="mode-tab__en">Write</span>
+                    </span>
+                </button>
             </nav>
             <section
                 class="drill-card drill-stage"
@@ -158,6 +171,31 @@
                             <span lang="ja">もういちど</span> REPLAY
                         </span>
                     </button>
+                    <div
+                        class="write-cue"
+                        data-slot="write-cue"
+                        data-visible="false"
+                        aria-hidden="true"
+                        hidden
+                    >
+                        <p
+                            class="write-cue__main"
+                            data-slot="write-cue-main"
+                        ></p>
+                        <p
+                            class="write-cue__sub"
+                            data-slot="write-cue-sub"
+                            lang="ja"
+                        ></p>
+                    </div>
+                    <canvas
+                        class="write-reveal"
+                        data-slot="write-reveal"
+                        data-visible="false"
+                        title="もういちど · Replay strokes"
+                        aria-hidden="true"
+                        hidden
+                    ></canvas>
                     <div
                         class="drill-card__empty"
                         data-slot="empty-state"
@@ -263,6 +301,88 @@
                                 data-choice-grid
                                 hidden
                             ></div>
+                        </div>
+                        <div
+                            class="answer-draw"
+                            data-slot="draw-block"
+                            hidden
+                        >
+                            <div class="draw-head">
+                                <p class="block-label">
+                                    <span lang="ja">かく</span>
+                                    <span class="block-label__en"
+                                        >DRAW THE CHARACTER</span
+                                    >
+                                </p>
+                                <button
+                                    class="tier-chip"
+                                    data-action="cycle-tier"
+                                    type="button"
+                                    title="Practice level — tap to change"
+                                >
+                                    <span
+                                        class="tier-chip__jp"
+                                        lang="ja"
+                                        data-slot="tier-jp"
+                                        >なぞる</span
+                                    >
+                                    <span
+                                        class="tier-chip__en"
+                                        data-slot="tier-en"
+                                        >TRACE</span
+                                    >
+                                </button>
+                            </div>
+                            <div class="draw-frame" data-slot="draw-frame">
+                                <canvas
+                                    class="draw-canvas"
+                                    data-slot="draw-canvas"
+                                ></canvas>
+                                <p
+                                    class="draw-note"
+                                    data-slot="draw-note"
+                                    data-tone=""
+                                    aria-live="polite"
+                                ></p>
+                            </div>
+                            <div class="draw-controls">
+                                <div
+                                    class="stroke-ticks"
+                                    data-slot="stroke-ticks"
+                                    aria-hidden="true"
+                                ></div>
+                                <div class="draw-buttons">
+                                    <button
+                                        class="draw-button"
+                                        data-action="draw-undo"
+                                        type="button"
+                                    >
+                                        <span lang="ja">もどす</span> UNDO
+                                    </button>
+                                    <button
+                                        class="draw-button"
+                                        data-action="draw-clear"
+                                        type="button"
+                                    >
+                                        <span lang="ja">けす</span> CLEAR
+                                    </button>
+                                    <button
+                                        class="draw-button draw-button--hint"
+                                        data-action="draw-hint"
+                                        type="button"
+                                    >
+                                        <span lang="ja">ヒント</span> HINT
+                                    </button>
+                                    <button
+                                        class="draw-button draw-button--done"
+                                        data-action="draw-done"
+                                        type="button"
+                                        hidden
+                                    >
+                                        <span lang="ja">できた</span> DONE
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -410,8 +530,41 @@
                     </section>
                 </div>
             </section>
+            <section
+                class="kana-sheets kanji-sheets"
+                data-region="kanji-sheets"
+            >
+                <div class="sheets-head">
+                    <p class="sheets-title">
+                        <span class="sheets-title__jp" lang="ja">漢字</span>
+                        <span class="sheets-title__en"
+                            >KANJI · WRITE-DRILL SHEETS</span
+                        >
+                    </p>
+                    <p class="sheets-guide">
+                        TAP A GROUP TO ADD IT TO THE WRITE DRILL · KYŌIKU
+                        GRADES 1–2 · STROKES FROM KANJIVG
+                    </p>
+                </div>
+                <div
+                    class="reference-panel__body"
+                    data-kanji-container
+                >
+                    <section class="kana-sheet kana-sheet--placeholder">
+                        <div class="kana-sheet__head">
+                            <p class="block-label">
+                                <span data-slot="kanji-placeholder"
+                                    >OPEN THE WRITE DRILL TO LOAD THE KANJI
+                                    SHEETS</span
+                                >
+                            </p>
+                        </div>
+                    </section>
+                </div>
+            </section>
             <p class="app-footer" data-region="footer">
-                <span lang="ja">保存済み</span> · PROGRESS SAVED ON THIS DEVICE
+                <span lang="ja">保存済み</span> · PROGRESS SAVED ON THIS
+                DEVICE · STROKE DATA © KANJIVG (CC BY-SA)
             </p>
         </main>
         <noscript>

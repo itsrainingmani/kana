@@ -37,18 +37,63 @@ function ensureWaveformsLoaded() {
   return waveformPromise;
 }
 
+// The write drill (stroke DB, canvas controller, recognizer runtime) lives
+// in its own chunk — ~30 KB gz plus a ~120 KB int8 model fetched on demand.
+// Nothing loads until the mode is first entered.
+let writeModule = null;
+let writeModulePromise = null;
+
+function ensureWriteModuleLoaded() {
+  if (writeModule || writeModulePromise) {
+    return writeModulePromise ?? Promise.resolve(writeModule);
+  }
+
+  writeModulePromise = import("./write/write-drill.js")
+    .then((module) => {
+      writeModule = module;
+      return writeModule;
+    })
+    .catch(() => {
+      writeModulePromise = null;
+      return null;
+    });
+
+  return writeModulePromise;
+}
+
 const MODE_LETTERS = {
   "kana-to-sound": "V",
   "sound-to-kana": "A",
+  write: "W",
 };
 
 // Outcome word pairs for the status line. Vermillion is the positive mark
 // here (marubatsu grading): correct = せいかい, revealed = amber こたえ,
-// incorrect = ink ざんねん.
+// incorrect = ink ざんねん. The write drill adds partial: right character,
+// wrong stroke order/count.
 const STATUS_THEMES = {
   correct: { jp: "せいかい", en: "CORRECT" },
   assisted: { jp: "こたえ", en: "REVEALED" },
   incorrect: { jp: "ざんねん", en: "NOT QUITE" },
+  partial: { jp: "おしい", en: "ALMOST" },
+};
+
+// Transient per-stroke feedback under the drawing canvas (kana-only copy —
+// the font subsets carry no extra kanji).
+const DRAW_NOTES = {
+  backwards: { jp: "ぎゃく！", en: "BACKWARDS — START FROM THE OTHER END" },
+  "out-of-order": { jp: "じゅんばん！", en: "WRONG ORDER" },
+  "no-match": { jp: "ちがうかたち", en: "CHECK POSITION AND SHAPE" },
+  grading: { jp: "よみとりちゅう", en: "READING YOUR WRITING…" },
+  "stroke-order": { jp: "じゅんばんがちがう", en: "RIGHT SHAPE — WRONG STROKE ORDER" },
+  "stroke-count": { jp: "かくすうがちがう", en: "STROKE COUNT IS OFF" },
+};
+
+// Tier chip labels (そらがき = writing from memory, "air writing").
+const TIER_LABELS = {
+  trace: { jp: "なぞる", en: "TRACE" },
+  guided: { jp: "みちびき", en: "GUIDED" },
+  recall: { jp: "そらがき", en: "RECALL" },
 };
 
 const TYPING_THEME = { jp: "ちがう", en: "NOT THAT SOUND — RETYPE" };
@@ -541,6 +586,23 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     statsStrong: root.querySelector('[data-slot="stats-strong"]'),
     sheetsSection: root.querySelector('[data-region="kana-sheets"]'),
     referenceContainer: root.querySelector("[data-reference-container]"),
+    writeCue: root.querySelector('[data-slot="write-cue"]'),
+    writeCueMain: root.querySelector('[data-slot="write-cue-main"]'),
+    writeCueSub: root.querySelector('[data-slot="write-cue-sub"]'),
+    writeReveal: root.querySelector('[data-slot="write-reveal"]'),
+    drawBlock: root.querySelector('[data-slot="draw-block"]'),
+    drawFrame: root.querySelector('[data-slot="draw-frame"]'),
+    drawCanvas: root.querySelector('[data-slot="draw-canvas"]'),
+    drawNote: root.querySelector('[data-slot="draw-note"]'),
+    strokeTicks: root.querySelector('[data-slot="stroke-ticks"]'),
+    tierChip: root.querySelector('[data-action="cycle-tier"]'),
+    tierJp: root.querySelector('[data-slot="tier-jp"]'),
+    tierEn: root.querySelector('[data-slot="tier-en"]'),
+    undoButton: root.querySelector('[data-action="draw-undo"]'),
+    clearButton: root.querySelector('[data-action="draw-clear"]'),
+    drawHintButton: root.querySelector('[data-action="draw-hint"]'),
+    doneButton: root.querySelector('[data-action="draw-done"]'),
+    kanjiContainer: root.querySelector("[data-kanji-container]"),
   };
 
   let promptIndex = 0;
@@ -562,6 +624,11 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
   let waveformProgress = 0;
   let waveformStartedAt = 0;
   let waveformFrame = null;
+  let writeDrill = null;
+  let writeRevealPlayer = null;
+  let writeDemoShown = false;
+  let writeResult = null;
+  let writeNoteState = null;
 
   const scheduleFrame =
     typeof globalThis.requestAnimationFrame === "function"
@@ -625,11 +692,80 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     return KANA_DATA;
   }
 
+  function getWritePool(session = sessionStore.getState()) {
+    return writeModule ? writeModule.buildWritePool(KANA_DATA, session) : [];
+  }
+
+  // Assistance tier: explicit override, else driven by this character's
+  // mastery — new chars get the traced ghost, strong ones write from memory.
+  function writeTierFor(target, session = sessionStore.getState()) {
+    if (session.writeAssist && session.writeAssist !== "auto") {
+      return session.writeAssist;
+    }
+    return writeModule.tierForMastery(
+      getMasteryLabel(progressStore.getKanaStats(target.id)),
+    );
+  }
+
+  function createWritePromptNow() {
+    if (!writeModule) {
+      // First entry: the chunk is still downloading. The render shows the
+      // loading state; once the module lands we pick a prompt and re-render.
+      void ensureWriteModuleLoaded().then((module) => {
+        if (module && sessionStore.getState().mode === "write") {
+          ensureWriteWiring();
+          if (!currentPrompt) {
+            setPrompt();
+            render();
+            autoplayPromptAudio();
+          } else {
+            render();
+          }
+        }
+      });
+      return null;
+    }
+    return writeModule.createWritePrompt(getWritePool());
+  }
+
+  function promptForMode(mode) {
+    if (mode === "write") {
+      return createWritePromptNow();
+    }
+    return createPromptForMode(mode, getEnabledKana());
+  }
+
+  function promptStillValid(prompt, mode) {
+    if (!prompt) {
+      return false;
+    }
+    if (mode === "write") {
+      return (
+        prompt.kind === "write" &&
+        getWritePool().some((record) => record.id === prompt.target.id)
+      );
+    }
+    const expectedKind =
+      mode === "sound-to-kana" ? "sound-to-kana" : "kana-to-sound";
+    return (
+      prompt.kind === expectedKind &&
+      getEnabledKana().some((kana) => kana.id === prompt.target.id)
+    );
+  }
+
+  function resetWritePromptState() {
+    writeResult = null;
+    writeNoteState = null;
+    writeDemoShown = false;
+    writeRevealPlayer?.stop();
+  }
+
   function setPrompt() {
     clearAdvanceTimer();
     clearAudioState();
+    resetWritePromptState();
     const session = sessionStore.getState();
-    currentPrompt = createPromptForMode(session.mode, getEnabledKana());
+    currentPrompt = promptForMode(session.mode);
     feedback = null;
     typingStatus = null;
     usedHint = false;
@@ -642,16 +778,10 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     clearAudioState();
 
     const session = sessionStore.getState();
-    const enabledKana = getEnabledKana();
-    const expectedKind =
-      session.mode === "sound-to-kana" ? "sound-to-kana" : "kana-to-sound";
-    const currentStillValid =
-      currentPrompt &&
-      currentPrompt.kind === expectedKind &&
-      enabledKana.some((kana) => kana.id === currentPrompt.target.id);
 
-    if (!currentStillValid) {
-      currentPrompt = createPromptForMode(session.mode, enabledKana);
+    if (!promptStillValid(currentPrompt, session.mode)) {
+      resetWritePromptState();
+      currentPrompt = promptForMode(session.mode);
       promptIndex += 1;
     }
 
@@ -664,15 +794,10 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
   function ensurePrompt() {
     const enabledKana = getEnabledKana();
 
-    if (
-      !currentPrompt ||
-      !enabledKana.some((kana) => kana.id === currentPrompt.target.id)
-    ) {
+    if (!promptStillValid(currentPrompt, sessionStore.getState().mode)) {
       clearAudioState();
-      currentPrompt = createPromptForMode(
-        sessionStore.getState().mode,
-        enabledKana,
-      );
+      resetWritePromptState();
+      currentPrompt = promptForMode(sessionStore.getState().mode);
       feedback = null;
       typingStatus = null;
       usedHint = false;
@@ -701,18 +826,25 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     sessionStore.setState({ streak });
   }
 
-  function finishPrompt(outcome) {
+  function answerLabelFor(prompt) {
+    if (prompt.kind === "write" && writeModule) {
+      return writeModule.writeAnswerLabel(prompt.target);
+    }
+    return formatAnswerLabel(prompt);
+  }
+
+  function finishPrompt(outcome, { advanceDelay = advanceDelayMs } = {}) {
     recordOutcome(outcome);
     updateStreak(outcome);
     feedback = {
       outcome,
-      answer: formatAnswerLabel(currentPrompt),
+      answer: answerLabelFor(currentPrompt),
     };
     typingStatus = null;
     render();
 
     if (outcome === "correct" && autoAdvance) {
-      scheduleAdvance(advanceDelayMs);
+      scheduleAdvance(advanceDelay);
     }
   }
 
@@ -906,18 +1038,28 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
   }
 
   function autoplayPromptAudio() {
-    if (
-      sessionStore.getState().mode !== "sound-to-kana" ||
-      !currentPrompt?.target.audioId ||
-      feedback
-    ) {
+    const mode = sessionStore.getState().mode;
+
+    if (!currentPrompt?.target.audioId || feedback) {
       return;
     }
 
-    void handleAudioPrompt(currentPrompt.target.audioId, {
-      markHint: false,
-      animatePrompt: true,
-    });
+    if (mode === "sound-to-kana") {
+      void handleAudioPrompt(currentPrompt.target.audioId, {
+        markHint: false,
+        animatePrompt: true,
+      });
+      return;
+    }
+
+    // Write mode is dictation for kana targets: say the syllable once when
+    // the prompt appears (no waveform poster in this mode).
+    if (mode === "write") {
+      void handleAudioPrompt(currentPrompt.target.audioId, {
+        markHint: false,
+        animatePrompt: false,
+      });
+    }
   }
 
   function resolveKanaTyping(answer) {
@@ -959,12 +1101,185 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
       return;
     }
 
+    if (sessionStore.getState().mode === "write") {
+      revealWritePrompt();
+      return;
+    }
+
     usedHint = true;
     void handleAudioPrompt(currentPrompt.target.audioId, {
       markHint: false,
       animatePrompt: false,
     });
     finishPrompt("assisted");
+  }
+
+  // ------------------------------------------------------------------
+  // Write drill plumbing
+
+  function ensureWriteWiring() {
+    if (!writeModule || writeDrill || !elements.drawCanvas) {
+      return;
+    }
+
+    writeDrill = writeModule.createWriteDrill({
+      canvas: elements.drawCanvas,
+      onEvent: handleWriteDrillEvent,
+    });
+    if (elements.writeReveal) {
+      writeRevealPlayer = writeModule.createStrokePlayer(elements.writeReveal);
+    }
+    renderKanjiSheets();
+  }
+
+  function setDrawNote(note, tone = "info") {
+    writeNoteState = note ? { ...note, tone } : null;
+    if (!elements.drawNote) {
+      return;
+    }
+    if (!writeNoteState) {
+      elements.drawNote.textContent = "";
+      elements.drawNote.dataset.tone = "";
+      return;
+    }
+    elements.drawNote.innerHTML = "";
+    const jp = document.createElement("span");
+    jp.lang = "ja";
+    jp.textContent = writeNoteState.jp;
+    const en = document.createElement("span");
+    en.className = "draw-note__en";
+    en.textContent = writeNoteState.en;
+    elements.drawNote.append(jp, en);
+    elements.drawNote.dataset.tone = tone;
+  }
+
+  function renderStrokeTicks() {
+    const container = elements.strokeTicks;
+    const session = writeDrill?.session;
+    if (!container) {
+      return;
+    }
+    if (!session) {
+      container.innerHTML = "";
+      return;
+    }
+
+    if (
+      container.childElementCount !== session.total ||
+      container.dataset.forGlyph !== session.glyph
+    ) {
+      container.innerHTML = Array.from(
+        { length: session.total },
+        () => '<span class="stroke-tick"></span>',
+      ).join("");
+      container.dataset.forGlyph = session.glyph;
+    }
+
+    const drawn = session.drawnCount();
+    [...container.children].forEach((tick, index) => {
+      tick.dataset.state =
+        index < drawn ? "done" : index === drawn ? "next" : "todo";
+    });
+  }
+
+  function updateDoneButton() {
+    const session = writeDrill?.session;
+    const show =
+      Boolean(session) &&
+      session.tier === "recall" &&
+      !session.finished &&
+      !feedback &&
+      session.drawnCount() > 0 &&
+      !session.isComplete();
+    setHidden(elements.doneButton, !show);
+  }
+
+  function handleWriteDrillEvent(event) {
+    if (event.type === "stroke" || event.type === "cleared") {
+      if (writeNoteState?.tone === "miss") {
+        setDrawNote(null);
+      }
+      renderStrokeTicks();
+      updateDoneButton();
+      return;
+    }
+
+    if (event.type === "ink-start") {
+      return;
+    }
+
+    if (event.type === "miss") {
+      const note = DRAW_NOTES[event.verdict] ?? DRAW_NOTES["no-match"];
+      if (event.verdict === "out-of-order") {
+        setDrawNote(
+          {
+            jp: note.jp,
+            en: `THAT WAS STROKE ${event.matchedIndex + 1} — STROKE ${event.expectedIndex + 1} COMES FIRST`,
+          },
+          "miss",
+        );
+      } else {
+        setDrawNote(note, "miss");
+      }
+      replayAttributeAnimation(elements.drawFrame, "deny");
+      return;
+    }
+
+    if (event.type === "grading") {
+      setDrawNote(DRAW_NOTES.grading, "info");
+      return;
+    }
+
+    if (event.type === "complete") {
+      handleWriteComplete(event.result);
+    }
+  }
+
+  function handleWriteComplete(result) {
+    if (!currentPrompt || feedback) {
+      return;
+    }
+
+    writeResult = result;
+    if (result.hintsUsed > 0) {
+      usedHint = true;
+    }
+
+    if (result.reason === "recognized-other" && result.recognized && writeModule) {
+      setDrawNote(writeModule.lookedLikeNote(result.recognized.label), "miss");
+    } else if (result.reason === "stroke-order") {
+      setDrawNote(DRAW_NOTES["stroke-order"], "almost");
+    } else if (result.reason === "stroke-count") {
+      const drawn = writeDrill?.session?.drawnCount() ?? 0;
+      const total = writeDrill?.session?.total ?? 0;
+      setDrawNote(
+        {
+          jp: DRAW_NOTES["stroke-count"].jp,
+          en: `${drawn} OF ${total} STROKES`,
+        },
+        "almost",
+      );
+    } else {
+      setDrawNote(null);
+    }
+
+    // Correct answers linger a beat longer than typed drills: the reveal
+    // stamp + finished character are worth a glance before advancing.
+    finishPrompt(result.outcome, { advanceDelay: 1600 });
+  }
+
+  // REVEAL in write mode teaches instead of skipping: ghost the character
+  // on the canvas, play the stroke-order demo on the poster, and let the
+  // learner finish tracing it (graded as assisted).
+  function revealWritePrompt() {
+    if (!writeDrill?.session || writeDrill.session.finished) {
+      return;
+    }
+    usedHint = true;
+    writeDrill.reveal();
+    writeDemoShown = true;
+    render();
+    writeRevealPlayer?.play();
   }
 
   function renderControls(session) {
@@ -997,8 +1312,14 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
   function renderPromptSection(session, prompt, promptFont) {
     const mode = session.mode;
     const isAural = mode === "sound-to-kana";
-    const showGlyph = Boolean(prompt) && (!isAural || Boolean(feedback));
+    const isWrite = mode === "write";
+    const showGlyph = Boolean(prompt) && !isWrite && (!isAural || Boolean(feedback));
     const showWave = Boolean(prompt) && isAural && !feedback;
+    // Write mode: the poster is the cue before the answer, and the animated
+    // stroke-order reveal after (or during a reveal-assisted attempt).
+    const showWriteReveal =
+      Boolean(prompt) && isWrite && (Boolean(feedback) || writeDemoShown);
+    const showWriteCue = Boolean(prompt) && isWrite && !showWriteReveal;
 
     setText(elements.scriptLabel, getActiveScriptLabel(session));
     setText(
@@ -1008,15 +1329,20 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
 
     elements.promptCard.dataset.outcome = feedback?.outcome ?? "";
     elements.promptCard.dataset.hasAudio = isAural ? "true" : "false";
+    elements.promptCard.dataset.mode = mode;
 
     setHidden(elements.hintChip, !(prompt && usedHint && !feedback));
     setText(
       elements.fontLabel,
       !prompt
         ? ""
-        : showGlyph
-          ? `FONT · ${promptFont.label}`
-          : "AUDIO PROMPT",
+        : isWrite
+          ? prompt.target.script === "kanji"
+            ? `KANJI · GRADE ${prompt.target.grade}`
+            : "DICTATION"
+          : showGlyph
+            ? `FONT · ${promptFont.label}`
+            : "AUDIO PROMPT",
     );
 
     if (elements.promptStage) {
@@ -1051,12 +1377,46 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     elements.promptGlyph.dataset.reveal =
       isAural && showGlyph ? "true" : "false";
 
+    if (showWriteCue && writeModule) {
+      const cue = writeModule.writeCueFor(prompt.target);
+      setText(elements.writeCueMain, cue.main);
+      setText(elements.writeCueSub, cue.sub);
+      elements.writeCue.dataset.cueKind = cue.kind;
+      // Kana cues are tap-to-hear, like every glyph elsewhere in the app.
+      if (cue.kind === "kana") {
+        elements.writeCue.title = "きく · Hear it";
+      } else {
+        elements.writeCue.removeAttribute("title");
+      }
+    } else if (elements.writeCue) {
+      setText(elements.writeCueMain, "");
+      setText(elements.writeCueSub, "");
+    }
+
+    if (elements.writeReveal) {
+      const revealKey = showWriteReveal ? `${prompt.target.glyph}` : "";
+      if (elements.writeReveal.dataset.revealFor !== revealKey) {
+        elements.writeReveal.dataset.revealFor = revealKey;
+        if (showWriteReveal && writeRevealPlayer) {
+          writeRevealPlayer.setGlyph(prompt.target.glyph);
+          writeRevealPlayer.play();
+        } else {
+          writeRevealPlayer?.stop();
+        }
+      }
+    }
+
     setVisibleState(elements.promptGlyph, showGlyph);
     setVisibleState(elements.audioPosterButton, showWave);
+    setVisibleState(elements.writeCue, showWriteCue);
+    setVisibleState(elements.writeReveal, showWriteReveal);
     setHidden(elements.emptyState, Boolean(prompt));
     setHidden(
       elements.maruStamp,
-      !(feedback?.outcome === "correct" && showGlyph),
+      !(
+        feedback?.outcome === "correct" &&
+        (showGlyph || (isWrite && Boolean(feedback)))
+      ),
     );
 
     renderAudioState();
@@ -1093,7 +1453,69 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
       ? `${session.mode}:${prompt.target.id}:${promptFont.id}`
       : "empty";
 
-    setHidden(elements.answerBlock, !prompt);
+    setHidden(
+      elements.answerBlock,
+      !prompt && !(session.mode === "write" && !writeModule),
+    );
+
+    if (session.mode === "write") {
+      setVisibleState(elements.typedBlock, false);
+      setVisibleState(elements.answerInput, false);
+      setVisibleState(elements.choicesBlock, false);
+      setVisibleState(elements.choiceGrid, false);
+      setVisibleState(elements.drawBlock, true);
+      elements.choiceGrid.innerHTML = "";
+      delete elements.choiceGrid.dataset.promptKey;
+
+      const loading = !writeModule;
+      elements.drawBlock.dataset.loading = loading ? "true" : "false";
+
+      if (loading || !prompt) {
+        elements.strokeTicks.innerHTML = "";
+        setHidden(elements.doneButton, true);
+        if (loading) {
+          setDrawNote(
+            { jp: "じゅんびちゅう", en: "LOADING STROKE DATA…" },
+            "info",
+          );
+        } else {
+          setDrawNote(null);
+        }
+        activePromptKey = promptKey;
+        return;
+      }
+
+      ensureWriteWiring();
+
+      const tier = writeTierFor(prompt.target, session);
+      const writeKey = `${promptKey}:${tier}`;
+
+      if (writeDrill && elements.drawBlock.dataset.promptKey !== writeKey) {
+        elements.drawBlock.dataset.promptKey = writeKey;
+        writeDrill.setPrompt({ glyph: prompt.target.glyph, tier });
+        setDrawNote(null);
+      }
+
+      const tierLabel = TIER_LABELS[tier];
+      setText(elements.tierJp, tierLabel.jp);
+      setText(elements.tierEn, session.writeAssist === "auto" ? `AUTO · ${tierLabel.en}` : tierLabel.en);
+      elements.tierChip.dataset.tier = tier;
+
+      const locked = Boolean(feedback);
+      elements.drawBlock.dataset.finished = locked ? "true" : "false";
+      elements.undoButton.disabled = locked;
+      elements.clearButton.disabled = locked;
+      elements.drawHintButton.disabled = locked || tier === "recall";
+      setHidden(elements.drawHintButton, tier === "recall");
+
+      renderStrokeTicks();
+      updateDoneButton();
+      activePromptKey = promptKey;
+      return;
+    }
+
+    setVisibleState(elements.drawBlock, false);
+    elements.drawBlock.dataset.loading = "false";
 
     if (session.mode === "sound-to-kana" && prompt) {
       setVisibleState(elements.typedBlock, false);
@@ -1210,9 +1632,18 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
 
   function renderActions(session, prompt) {
     setHidden(elements.drillActions, !prompt || Boolean(feedback));
-    setHidden(elements.hearButton, session.mode === "sound-to-kana");
+    // HEAR shows wherever the prompt has audio to give: visual mode always,
+    // write mode only for kana targets (kanji prompts have no clips).
+    setHidden(
+      elements.hearButton,
+      session.mode === "sound-to-kana" ||
+        (session.mode === "write" && !prompt?.target.audioId),
+    );
     if (elements.revealButton) {
-      elements.revealButton.disabled = !prompt || Boolean(feedback);
+      // In write mode REVEAL turns into the traced demo; once shown, the
+      // button has done its job for this prompt.
+      elements.revealButton.disabled =
+        !prompt || Boolean(feedback) || (session.mode === "write" && writeDemoShown);
     }
     setHidden(elements.nextButton, !feedback);
   }
@@ -1303,11 +1734,117 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     }
   }
 
+  const KANJI_GRADE_INFO = {
+    1: { jp: "いちねんせい", en: "KYŌIKU GRADE 1", badge: "一" },
+    2: { jp: "にねんせい", en: "KYŌIKU GRADE 2", badge: "二" },
+  };
+
+  function renderKanjiSheets() {
+    const container = elements.kanjiContainer;
+
+    if (!container || !writeModule) {
+      return;
+    }
+
+    const selected = new Set(sessionStore.getState().selectedKanjiGroups);
+    const groups = writeModule.kanjiGroups();
+
+    // Same build-once + patch-in-place contract as the kana sheets: the
+    // structure never rebuilds, so toggle transitions actually run.
+    if (container.dataset.built !== "true") {
+      const grades = [...new Set(groups.map((group) => group.grade))];
+      container.innerHTML = grades
+        .map((grade) => {
+          const info = KANJI_GRADE_INFO[grade];
+          const gradeGroups = groups.filter((group) => group.grade === grade);
+
+          return `
+            <section class="kana-sheet kanji-sheet" data-kanji-sheet="g${grade}">
+              <div class="kana-sheet__head">
+                <span class="kana-sheet__id">
+                  <span class="kana-sheet__badge kanji-sheet__badge" lang="ja" aria-hidden="true">${info.badge}</span>
+                  <span class="kana-sheet__names">
+                    <span class="kana-sheet__jp" lang="ja">${info.jp}</span>
+                    <span class="kana-sheet__en">${info.en}</span>
+                  </span>
+                </span>
+                <span class="kana-sheet__count" data-kanji-sheet-count="g${grade}"></span>
+              </div>
+              <div class="kana-matrix__head">
+                <p class="kana-matrix__label">
+                  <span lang="ja">かきとり</span>
+                  <span class="kana-matrix__label-en">GROUPS OF TEN</span>
+                </p>
+                <span class="kana-matrix__actions">
+                  <button class="reference-link-action" data-kanji-toggle-all="g${grade}" aria-label="Select all of grade ${grade}" type="button"><span lang="ja">ぜんぶ</span> ALL</button>
+                  <button class="reference-link-action reference-link-action--none" data-kanji-toggle-none="g${grade}" aria-label="Clear all of grade ${grade}" type="button"><span lang="ja">なし</span> NONE</button>
+                </span>
+              </div>
+              <div class="kanji-group-grid">
+                ${gradeGroups
+                  .map(
+                    (group) => `
+                      <button
+                        class="kanji-group"
+                        data-kanji-group="${group.id}"
+                        data-active="false"
+                        aria-pressed="false"
+                        type="button"
+                      >
+                        <span class="kanji-group__code">${group.rangeLabel}</span>
+                        <span class="kanji-group__glyphs" lang="ja">${group.members
+                          .map(
+                            (kanji) =>
+                              `<span class="kanji-group__glyph" title="${kanji.meaning}">${kanji.glyph}</span>`,
+                          )
+                          .join("")}</span>
+                      </button>
+                    `,
+                  )
+                  .join("")}
+              </div>
+            </section>
+          `;
+        })
+        .join("");
+      container.dataset.built = "true";
+    }
+
+    container.querySelectorAll("[data-kanji-group]").forEach((button) => {
+      const active = selected.has(button.dataset.kanjiGroup);
+      button.dataset.active = active ? "true" : "false";
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+
+    for (const grade of [1, 2]) {
+      const count = container.querySelector(
+        `[data-kanji-sheet-count="g${grade}"]`,
+      );
+      if (count) {
+        const gradeGroups = groups.filter((group) => group.grade === grade);
+        const activeKanji = gradeGroups
+          .filter((group) => selected.has(group.id))
+          .reduce((sum, group) => sum + group.members.length, 0);
+        const total = gradeGroups.reduce(
+          (sum, group) => sum + group.members.length,
+          0,
+        );
+        count.textContent = `${activeKanji}/${total} ON`;
+      }
+    }
+  }
+
   function render() {
     const session = sessionStore.getState();
     const enabledKana = ensurePrompt();
     const referenceKana = getReferenceKana();
-    const summary = createSummary(enabledKana, progressStore);
+    // The record strip reflects what the active mode drills: kana for the
+    // sound modes, kana + enabled kanji for the write drill.
+    const statsPool =
+      session.mode === "write" && writeModule
+        ? getWritePool(session)
+        : enabledKana;
+    const summary = createSummary(statsPool, progressStore);
     const promptFont = getPromptFont(session);
 
     renderControls(session);
@@ -1316,6 +1853,7 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     renderActions(session, currentPrompt);
     renderStats(summary, session);
     renderReference(referenceKana, enabledKana);
+    renderKanjiSheets();
 
     if (
       session.mode === "kana-to-sound" &&
@@ -1435,6 +1973,77 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
       return;
     }
 
+    if (button.dataset.action === "cycle-tier") {
+      const order = ["auto", "trace", "guided", "recall"];
+      const current = sessionStore.getState().writeAssist ?? "auto";
+      const next = order[(order.indexOf(current) + 1) % order.length];
+      sessionStore.setState({ writeAssist: next });
+      // The tier is part of the drawing session: switching restarts the
+      // current character with the new assistance level.
+      render();
+      return;
+    }
+
+    if (button.dataset.action === "draw-undo") {
+      writeDrill?.undo();
+      return;
+    }
+
+    if (button.dataset.action === "draw-clear") {
+      writeDrill?.clear();
+      return;
+    }
+
+    if (button.dataset.action === "draw-hint") {
+      if (writeDrill?.hint()) {
+        usedHint = true;
+        render();
+      }
+      return;
+    }
+
+    if (button.dataset.action === "draw-done") {
+      void writeDrill?.finish();
+      return;
+    }
+
+    if (button.dataset.kanjiGroup) {
+      const sessionState = sessionStore.getState();
+      const groups = toggleSelection(
+        sessionState.selectedKanjiGroups,
+        button.dataset.kanjiGroup,
+      );
+      sessionStore.setState({ selectedKanjiGroups: groups });
+      suppressInputFocus = true;
+      refreshPromptAfterSelectionChange();
+      render();
+      return;
+    }
+
+    if (button.dataset.kanjiToggleAll || button.dataset.kanjiToggleNone) {
+      const grade = button.dataset.kanjiToggleAll ?? button.dataset.kanjiToggleNone;
+      const sessionState = sessionStore.getState();
+      const kept = sessionState.selectedKanjiGroups.filter(
+        (id) => !id.startsWith(`${grade}:`),
+      );
+      const groups = button.dataset.kanjiToggleAll
+        ? [
+            ...kept,
+            ...(writeModule
+              ? writeModule
+                  .kanjiGroups()
+                  .filter((group) => group.id.startsWith(`${grade}:`))
+                  .map((group) => group.id)
+              : []),
+          ]
+        : kept;
+      sessionStore.setState({ selectedKanjiGroups: groups });
+      suppressInputFocus = true;
+      refreshPromptAfterSelectionChange();
+      render();
+      return;
+    }
+
     if (button.dataset.choice && currentPrompt && !feedback) {
       typingStatus = null;
       selectedChoiceId = button.dataset.choice;
@@ -1498,6 +2107,29 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     });
   });
 
+  // The write cue behaves the same for kana targets (dictation replay);
+  // kanji cues carry no audio.
+  elements.writeCue?.addEventListener("click", () => {
+    if (
+      !currentPrompt?.target.audioId ||
+      elements.writeCue.dataset.visible !== "true"
+    ) {
+      return;
+    }
+
+    void handleAudioPrompt(currentPrompt.target.audioId, {
+      markHint: false,
+      animatePrompt: false,
+    });
+  });
+
+  // Tap the finished reveal to watch the stroke order again.
+  elements.writeReveal?.addEventListener("click", () => {
+    if (elements.writeReveal.dataset.visible === "true") {
+      writeRevealPlayer?.play();
+    }
+  });
+
   // Manual advance is always available during feedback: NEXT, Enter, or
   // Space. The document-level listener works even when nothing inside the
   // card has focus (the disabled input drops focus after answering).
@@ -1533,6 +2165,33 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
 
       event.preventDefault();
       advancePrompt();
+      return;
+    }
+
+    if (
+      sessionStore.getState().mode === "write" &&
+      currentPrompt &&
+      !(event.target instanceof HTMLInputElement)
+    ) {
+      // Mechanical keys for the drawing hand's idle side: H hint, U undo,
+      // C clear, R replay the kana cue. No animations on these paths.
+      const key = event.key.toLowerCase();
+      if (key === "h" && !elements.drawHintButton?.hidden) {
+        event.preventDefault();
+        elements.drawHintButton?.click();
+      } else if (key === "u") {
+        event.preventDefault();
+        writeDrill?.undo();
+      } else if (key === "c") {
+        event.preventDefault();
+        writeDrill?.clear();
+      } else if (key === "r" && currentPrompt.target.audioId) {
+        event.preventDefault();
+        void handleAudioPrompt(currentPrompt.target.audioId, {
+          markHint: false,
+          animatePrompt: false,
+        });
+      }
       return;
     }
 
