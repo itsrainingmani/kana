@@ -68,3 +68,28 @@
 - Hover affordances live in one `@media (hover: hover) and (pointer: fine)`
   block near the end of `styles.css`; keep new hover rules there so touch
   devices never see them.
+
+## Write drill notes
+
+- Everything write-mode lives in `src/write/` and loads as one lazy chunk
+  (`ensureWriteModuleLoaded` in `app.js`, mirroring the waveforms
+  pattern) plus a ~120 KB int8 model fetched on demand. Never import
+  `src/write/*` statically from the main bundle.
+- `src/write/stroke-data.js` and `src/write/kanji-data.js` are GENERATED
+  by `scripts/build-stroke-data.mjs` from the vendored KanjiVG SVGs — do
+  not hand-edit; re-run the script.
+- `ml/features.py` and `src/write/recognizer-features.js` implement the
+  same feature spec; `tests/write-parity.test.js` pins them to golden
+  vectors exported by `ml/export.py`. Changing either side requires a
+  FEATURE_VERSION bump + retrain + re-export (see `ml/README.md`).
+- Stroke grading semantics live in `write-session.js` (pure, tested) —
+  the canvas controller (`write-drill.js`) only renders what the session
+  decides. Homoglyph pairs (へ/ヘ, カ/力 …) ship in the model header and
+  grade as each other; keep that list in `ml/homoglyphs.py`.
+- New JP interface copy must stay kana-only: the font subsets carry no
+  extra kanji. Kanji glyphs render as canvas strokes or standalone
+  elements falling back to system JP fonts.
+- The drawing canvas needs `touch-action: none` and pointer capture (both
+  in place); per-stroke feedback must respond on pointerup, never on a
+  timer. `prefers-reduced-motion` swaps every canvas animation for its
+  end state.
