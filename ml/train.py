@@ -47,16 +47,38 @@ def build_model(arch: str, classes: int) -> nn.Module:
 
 
 class FeatureDataset(torch.utils.data.Dataset):
-    def __init__(self, x: np.ndarray, y: np.ndarray, noise: float = 0.0):
+    """Pre-generated feature tensors with cheap train-time augmentation.
+
+    `shift` rolls the spatial grid by ±1 cell (zero-filled) — the feature
+    space is bbox-normalized, so this reproduces the normalization jitter of
+    real drawings and is the strongest guard against memorizing the fixed
+    sample pool.
+    """
+
+    def __init__(self, x: np.ndarray, y: np.ndarray, noise: float = 0.0, shift: bool = False):
         self.x = x
         self.y = y
         self.noise = noise
+        self.shift = shift
 
     def __len__(self) -> int:
         return len(self.y)
 
     def __getitem__(self, index: int):
         features = torch.from_numpy(self.x[index].astype(np.float32)) / 255.0
+        if self.shift:
+            dx = int(torch.randint(-1, 2, ()).item())
+            dy = int(torch.randint(-1, 2, ()).item())
+            if dx or dy:
+                features = torch.roll(features, shifts=(dy, dx), dims=(1, 2))
+                if dy > 0:
+                    features[:, :dy, :] = 0
+                elif dy < 0:
+                    features[:, dy:, :] = 0
+                if dx > 0:
+                    features[:, :, :dx] = 0
+                elif dx < 0:
+                    features[:, :, dx:] = 0
         if self.noise > 0:
             features = (features + torch.randn_like(features) * self.noise).clamp_(0, 1.5)
         return features, int(self.y[index])
@@ -102,9 +124,9 @@ def top_confusions(model: nn.Module, loader, labels: list[str], k: int = 12):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=34)
+    parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch", type=int, default=256)
-    parser.add_argument("--lr", type=float, default=3e-3)
+    parser.add_argument("--lr", type=float, default=2e-3)
     parser.add_argument("--arch", default="kwnet1")
     # Early stop is off by default: with a cosine schedule the mid-run val
     # dips (while LR is still high) are expected, and stopping there ships a
@@ -126,7 +148,7 @@ def main() -> None:
     y_stress = np.load(GENERATED / "y_stress.npy")
 
     train_loader = torch.utils.data.DataLoader(
-        FeatureDataset(x_train, y_train, noise=0.01),
+        FeatureDataset(x_train, y_train, noise=0.02, shift=True),
         batch_size=args.batch,
         shuffle=True,
         num_workers=2,
@@ -144,7 +166,7 @@ def main() -> None:
     lookup = group_lookup_tensor(labels)
     print(f"arch={args.arch} params={params} classes={len(labels)}", flush=True)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=3e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
     criterion = nn.CrossEntropyLoss(label_smoothing=0.05)
 

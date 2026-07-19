@@ -189,6 +189,7 @@ button:focus-visible {
     'record'
     'fonts'
     'sheets'
+    'kanji'
     'foot';
   align-items: start;
 }
@@ -217,6 +218,12 @@ button:focus-visible {
   grid-area: sheets;
 }
 
+/* The kanji sheets share the kana sheets' look but live in their own band
+   (mobile: below the kana charts; desktop: lower right rail). */
+.kanji-sheets {
+  grid-area: kanji;
+}
+
 .app-footer {
   grid-area: foot;
 }
@@ -227,14 +234,15 @@ button:focus-visible {
     padding: 56px 24px 104px;
     gap: 32px 64px;
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.88fr);
-    grid-template-rows: auto auto auto auto auto 1fr;
+    grid-template-rows: auto auto auto auto auto auto 1fr;
     grid-template-areas:
       'mast mast'
       'nav sheets'
       'drill sheets'
       'record sheets'
       'fonts sheets'
-      'foot sheets';
+      'foot sheets'
+      '. kanji';
   }
 }
 
@@ -1212,6 +1220,12 @@ button:focus-visible {
 
 .draw-button:active {
   transform: scale(0.97);
+}
+
+/* display:inline-flex would defeat the hidden attribute (author rules beat
+   the UA [hidden] default) — same guard the hint chip needs. */
+.draw-button[hidden] {
+  display: none;
 }
 
 .draw-button:disabled {
