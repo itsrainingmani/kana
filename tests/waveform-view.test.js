@@ -5,16 +5,22 @@ import {
   resampleWaveform,
 } from "../src/waveform-view.js";
 
+const IDLE = "rgba(250, 249, 246, 0.55)";
+const PLAYED = "rgba(92, 175, 232, 1)";
+
 function createStubCanvas() {
   const strokes = [];
+  const fills = [];
   const ctx = {
     lineWidth: 0,
     lineCap: "butt",
     strokeStyle: "",
+    fillStyle: null,
     clears: 0,
     clearRect() {
       this.clears += 1;
       strokes.length = 0;
+      fills.length = 0;
     },
     beginPath() {
       this.pathStart = null;
@@ -28,22 +34,30 @@ function createStubCanvas() {
     stroke() {
       strokes.push({
         style: this.strokeStyle,
+        cap: this.lineCap,
         from: { ...this.pathStart },
         to: { ...this.pathEnd },
       });
     },
+    createLinearGradient() {
+      return { addColorStop() {}, isGradient: true };
+    },
+    fillRect(x, y, w, h) {
+      fills.push({ style: this.fillStyle, x, y, w, h });
+    },
   };
 
   return {
-    clientWidth: 250,
-    clientHeight: 64,
-    offsetWidth: 250,
-    offsetHeight: 64,
+    clientWidth: 316,
+    clientHeight: 44,
+    offsetWidth: 316,
+    offsetHeight: 44,
     width: 0,
     height: 0,
     getContext: () => ctx,
     ctx,
     strokes,
+    fills,
   };
 }
 
@@ -91,17 +105,20 @@ function runUntilSettled(frames, from = 0, step = 16, maxMs = 4000) {
 }
 
 describe("resampleWaveform", () => {
-  it("downsamples to the signage bar count with a quiet floor", () => {
-    const bars = resampleWaveform([100, 50, 0, 12]);
+  it("maps every source bucket to a hairline bar above the dot floor", () => {
+    const values = Array.from({ length: 100 }, (_, i) => (i === 0 ? 100 : 12));
+    const bars = resampleWaveform(values);
     expect(bars).toHaveLength(WAVEFORM_BAR_COUNT);
     expect(bars[0]).toBe(1);
-    expect(Math.min(...bars)).toBeGreaterThanOrEqual(0.12);
+    // The 12/100 source noise floor collapses to the dotted centerline.
+    expect(bars[50]).toBeCloseTo(0.045, 5);
+    expect(Math.min(...bars)).toBeGreaterThan(0);
   });
 
-  it("returns the flat floor for missing data", () => {
+  it("returns the dotted floor for missing data", () => {
     const bars = resampleWaveform(null);
     expect(bars).toHaveLength(WAVEFORM_BAR_COUNT);
-    expect(new Set(bars)).toEqual(new Set([0.12]));
+    expect(new Set(bars)).toEqual(new Set([0.045]));
   });
 });
 
@@ -122,7 +139,7 @@ describe("createWaveformView", () => {
     expect(canvas.strokes).toHaveLength(8);
   });
 
-  it("morphs to a new shape through springs with a left-to-right stagger", () => {
+  it("prints in a new shape through springs with a left-to-right stagger", () => {
     const canvas = createStubCanvas();
     const { view, frames } = createHarnessView(canvas);
 
@@ -133,7 +150,7 @@ describe("createWaveformView", () => {
 
     expect(frames.hasPending()).toBe(true);
     frames.tick(0); // stamps the morph start
-    frames.tick(32);
+    frames.tick(16);
 
     const mid = view.inspect();
     // Early bars have started rising toward the new target; the last bar's
@@ -142,7 +159,7 @@ describe("createWaveformView", () => {
     expect(mid.rest[11]).toBe(0.2);
     expect(mid.heights[0]).toBeGreaterThan(0.2);
 
-    runUntilSettled(frames, 32);
+    runUntilSettled(frames, 16);
     const done = view.inspect();
     expect(done.rest).toEqual(to);
     for (const height of done.heights) {
@@ -165,18 +182,18 @@ describe("createWaveformView", () => {
 
     expect(view.inspect().progress).toBeCloseTo(0.5, 2);
     // progress 0.5 over 4 bars → coverage 2, 1, 0, -1: two bars fully
-    // played (metro blue), the third untouched.
-    expect(canvas.strokes[0].style).toBe("rgba(20, 102, 158, 1)");
-    expect(canvas.strokes[1].style).toBe("rgba(20, 102, 158, 1)");
-    expect(canvas.strokes[2].style).toBe("rgba(26, 24, 21, 0.28)");
+    // played (accent), the third untouched.
+    expect(canvas.strokes[0].style).toBe(PLAYED);
+    expect(canvas.strokes[1].style).toBe(PLAYED);
+    expect(canvas.strokes[2].style).toBe(IDLE);
 
     frames.tick(1250); // progress 0.625 → coverage on bar 2 is 0.5, a blend
     const blended = canvas.strokes[2].style;
-    expect(blended).not.toBe("rgba(26, 24, 21, 0.28)");
-    expect(blended).not.toBe("rgba(20, 102, 158, 1)");
+    expect(blended).not.toBe(IDLE);
+    expect(blended).not.toBe(PLAYED);
   });
 
-  it("lifts bars near the playhead and settles after finishPlayback", () => {
+  it("draws the playhead cursor and wake only while playing", () => {
     const canvas = createStubCanvas();
     const { view, frames } = createHarnessView(canvas);
 
@@ -184,30 +201,29 @@ describe("createWaveformView", () => {
     view.setBars(rest, { animate: false, duration: 1000 });
     view.beginPlayback();
     frames.tick(0);
-    for (let t = 16; t <= 500; t += 16) {
-      frames.tick(t);
-    }
+    frames.tick(500);
 
-    // Mid-clip, the bar under the playhead has been excited above rest.
-    const playingState = view.inspect();
-    const head = Math.round(playingState.progress * 10 - 0.5);
-    expect(playingState.heights[head]).toBeGreaterThan(0.45);
+    // Mid-clip: bars stay still (no ripple — precision over bounce), and
+    // the cursor hairline + gradient wake are drawn past the bars.
+    expect(view.inspect().heights).toEqual(rest);
+    expect(canvas.fills).toHaveLength(1);
+    expect(canvas.fills[0].style?.isGradient).toBe(true);
+    const cursor = canvas.strokes.at(-1);
+    expect(cursor.cap).toBe("butt");
+    expect(cursor.style).toBe(PLAYED);
+    expect(cursor.from.x).toBeCloseTo(cursor.to.x, 5);
 
     view.finishPlayback();
     expect(view.inspect().progress).toBe(1);
     runUntilSettled(frames, 500);
 
-    const settledState = view.inspect();
-    expect(settledState.playing).toBe(false);
-    for (const height of settledState.heights) {
-      expect(height).toBeCloseTo(0.4, 1);
-    }
-    // The loop shuts itself down once the wake dies out.
-    expect(frames.hasPending()).toBe(false);
-    // Every bar is painted as played.
+    // Settled: every bar accent, no cursor, loop shut down.
+    expect(canvas.fills).toHaveLength(0);
+    expect(canvas.strokes).toHaveLength(10);
     for (const stroke of canvas.strokes) {
-      expect(stroke.style).toBe("rgba(20, 102, 158, 1)");
+      expect(stroke.style).toBe(PLAYED);
     }
+    expect(frames.hasPending()).toBe(false);
   });
 
   it("resets the sweep without disturbing settled bars", () => {
@@ -224,10 +240,10 @@ describe("createWaveformView", () => {
     view.resetPlayback();
     runUntilSettled(frames, 5000);
     expect(view.inspect().progress).toBe(0);
-    expect(canvas.strokes[0].style).toBe("rgba(26, 24, 21, 0.28)");
+    expect(canvas.strokes[0].style).toBe(IDLE);
   });
 
-  it("snaps morphs and skips the ripple under reduced motion", () => {
+  it("snaps the print-in under reduced motion while keeping the sweep", () => {
     const canvas = createStubCanvas();
     const { view, frames } = createHarnessView(canvas, {
       prefersReducedMotion: () => true,
@@ -240,8 +256,7 @@ describe("createWaveformView", () => {
     view.beginPlayback();
     frames.tick(100);
     frames.tick(250);
-    // The informational sweep still advances, but no bar leaves its rest
-    // height.
+    // The informational sweep still advances, but no bar moves.
     expect(view.inspect().progress).toBeGreaterThan(0);
     expect(view.inspect().heights).toEqual([0.2, 0.2, 0.2]);
   });

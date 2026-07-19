@@ -27,11 +27,13 @@
   via `<link rel="preload">` in `index.html` so the first paint doesn't
   wait on CSS to discover them.
 - `scripts/build-audio-assets.mjs` produces 100-bucket waveform data;
-  `src/waveform-view.js` downsamples it to `WAVEFORM_BAR_COUNT` (36) chunky
-  signage bars, so the runtime resample stays cheap. The view drives bar
-  heights through per-bar springs (playhead ripple, staggered syllable
-  morphs) on a self-terminating rAF loop and snaps to end states under
-  `prefers-reduced-motion`; `app.js` only feeds it bars/playback events.
+  `src/waveform-view.js` renders every bucket as a hairline bar
+  (`WAVEFORM_BAR_COUNT` = 100) on the dark player panel — silence
+  collapses to center dots, playback sweeps an accent fill plus a cursor
+  with a gradient wake (waveform language after destruct.dev). New
+  syllables print in via per-bar critically-damped springs on a
+  self-terminating rAF loop; `prefers-reduced-motion` snaps to end
+  states. `app.js` only feeds it bars/playback events.
 - UI fonts (Zen Kaku Gothic New, IBM Plex Mono) are subset woff2 files in
   `assets/fonts/` covering latin + kana + the UI kanji only. If new JP
   copy is added to the interface, the subsets must be regenerated

@@ -1,54 +1,56 @@
-// Aural-mode waveform view: chunky signage bars driven by per-bar springs.
+// Aural-mode waveform view: a dense hairline waveform on a dark player
+// panel, after the sample-browser language of destruct.dev — thin mirrored
+// bars where near-silence collapses to center dots, played bars flip to
+// the accent, and a sharp playhead cursor drags a soft gradient wake.
 //
-// Redesign notes (interaction principles per devouringdetails.com):
-// - Proportional response: playback paints a continuous sub-bar sweep and
-//   bars physically lift as the playhead passes them — the sign responds to
-//   sound moving through it, not just a stepped color fill.
-// - Springs over durations: every bar height runs through its own damped
-//   spring, so replay spam, prompt swaps, and late-arriving waveform data
-//   all retarget mid-flight without a visible cut.
-// - Choreography: a new syllable's silhouette arrives as a left-to-right
-//   staggered morph — nothing moves in perfect concert.
-// - Restraint: idle is static, the settled all-blue state is the only
-//   completion confirmation, and prefers-reduced-motion snaps every spring
-//   to its end state while keeping the informational progress sweep.
+// Motion principles (devouringdetails.com): the bars themselves are still —
+// precision over bounce — so all playback motion lives in the sweep and
+// cursor. A new syllable's silhouette prints in through per-bar
+// critically-damped springs with a left→right stagger; interruptions
+// (replay spam, prompt swaps, the lazy data chunk landing mid-clip)
+// retarget mid-flight, and prefers-reduced-motion snaps every spring to
+// its end state while keeping the informational sweep.
 
-export const WAVEFORM_BAR_COUNT = 36;
+// The source buckets are 100 wide; every bucket gets its own hairline bar.
+export const WAVEFORM_BAR_COUNT = 100;
 
-const REST_FLOOR = 0.12;
+// Source peaks sit on a noise floor of 12/100; remapping it to zero lets
+// silent tails collapse into the dotted centerline instead of stub bars.
+const SOURCE_FLOOR = 12;
+const DOT_FLOOR = 0.045;
 
-// Spring tuned for the ~250–700 ms clips: stiff enough for the ripple to
-// keep up with the playhead, damped low enough to leave a small wake.
-const STIFFNESS = 380;
-const DAMPING = 26;
+// Critically damped spring for the print-in — fast, no overshoot.
+const STIFFNESS = 900;
+const DAMPING = 60;
 const MAX_FRAME_DT = 0.048;
 
-// How far neighbouring bars lift as the playhead passes (gaussian falloff
-// measured in bar-index space).
-const EXCITE_GAIN = 0.6;
-const EXCITE_SIGMA = 1.5;
-
-// New-syllable morph: each bar picks up its new target this many ms after
-// its left neighbour.
-const MORPH_STAGGER_MS = 9;
+// Print-in stagger: each bar picks up its target this many ms after its
+// left neighbour (~300 ms across the stage, pacing the short clips).
+const MORPH_STAGGER_MS = 3;
 
 const SETTLE_EPSILON = 0.004;
 
-// Idle bars are muted ink; played bars are the metro blue (#14669e). The
-// boundary bar blends by sub-bar coverage so the sweep never steps.
-const IDLE_COLOR = { r: 26, g: 24, b: 21, a: 0.28 };
-const PLAYED_COLOR = { r: 20, g: 102, b: 158, a: 1 };
+// Trailing wake behind the cursor, as a fraction of the stage width.
+const WAKE_WIDTH = 0.1;
+
+// Panel palette: warm off-white hairlines on the near-black panel; played
+// bars and the cursor take a metro blue brightened for the dark ground.
+const IDLE_COLOR = { r: 250, g: 249, b: 246, a: 0.55 };
+const PLAYED_COLOR = { r: 92, g: 175, b: 232, a: 1 };
 
 export function resampleWaveform(values, sampleCount = WAVEFORM_BAR_COUNT) {
   if (!Array.isArray(values) || values.length === 0) {
-    return Array.from({ length: sampleCount }, () => REST_FLOOR);
+    return Array.from({ length: sampleCount }, () => DOT_FLOOR);
   }
 
   return Array.from({ length: sampleCount }, (_, index) => {
     const sourceIndex = Math.round(
       (index / Math.max(sampleCount - 1, 1)) * (values.length - 1),
     );
-    return Math.max(REST_FLOOR, (values[sourceIndex] ?? 12) / 100);
+    const amplitude =
+      ((values[sourceIndex] ?? SOURCE_FLOOR) - SOURCE_FLOOR) /
+      (100 - SOURCE_FLOOR);
+    return Math.max(DOT_FLOOR, Math.min(1, amplitude));
   });
 }
 
@@ -62,6 +64,9 @@ function sweepColor(coverage) {
     1000;
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
+
+const ACCENT = `rgba(${PLAYED_COLOR.r}, ${PLAYED_COLOR.g}, ${PLAYED_COLOR.b}, 1)`;
+const ACCENT_WAKE = `rgba(${PLAYED_COLOR.r}, ${PLAYED_COLOR.g}, ${PLAYED_COLOR.b}, 0.14)`;
 
 let reducedMotionQuery = null;
 
@@ -95,7 +100,7 @@ export function createWaveformView(canvas, options = {}) {
     options.prefersReducedMotion ?? defaultPrefersReducedMotion;
 
   let rest = []; // settled bar amplitudes (0..1)
-  let pendingRest = null; // staggered morph targets not yet picked up
+  let pendingRest = null; // staggered print-in targets not yet picked up
   let morphStartedAt = null; // null = stamps on the next frame
   let heights = [];
   let velocities = [];
@@ -130,8 +135,8 @@ export function createWaveformView(canvas, options = {}) {
         : Math.min(MAX_FRAME_DT, Math.max(0, (timestamp - lastTick) / 1000));
     lastTick = timestamp;
 
-    // The playback clock stamps from frame timestamps only, so springs and
-    // the sweep can never disagree about "now".
+    // The playback clock stamps from frame timestamps only, so the sweep
+    // and springs can never disagree about "now".
     if (playing && startedAt === null) {
       startedAt = timestamp;
     }
@@ -159,22 +164,10 @@ export function createWaveformView(canvas, options = {}) {
       }
     }
 
-    const head = progress * rest.length - 0.5;
     let settled = pendingRest === null;
 
     for (let index = 0; index < rest.length; index += 1) {
-      let target = rest[index];
-
-      if (playing && duration > 0 && !reduced) {
-        const distance = index - head;
-        const lift = Math.exp(
-          -(distance * distance) / (2 * EXCITE_SIGMA * EXCITE_SIGMA),
-        );
-        target = Math.min(
-          1.2,
-          rest[index] + lift * EXCITE_GAIN * (0.2 + rest[index] * 0.8),
-        );
-      }
+      const target = rest[index];
 
       if (reduced) {
         heights[index] = target;
@@ -213,7 +206,7 @@ export function createWaveformView(canvas, options = {}) {
 
     const dpr = globalThis.devicePixelRatio || 1;
     const cssWidth = canvas.clientWidth || canvas.offsetWidth || 250;
-    const cssHeight = canvas.clientHeight || canvas.offsetHeight || 64;
+    const cssHeight = canvas.clientHeight || canvas.offsetHeight || 44;
     const width = Math.max(1, Math.round(cssWidth * dpr));
     const height = Math.max(1, Math.round(cssHeight * dpr));
 
@@ -232,24 +225,49 @@ export function createWaveformView(canvas, options = {}) {
 
     const halfHeight = height * 0.5;
     const xGap = width / barCount;
-    // 5px-wide bars with a 2px gap at the design's 250px stage width.
-    ctx.lineWidth = Math.max(1.5, xGap * 0.72);
+    // Hairline bars; round caps collapse silent buckets into center dots.
+    ctx.lineWidth = Math.max(1, Math.min(2 * dpr, xGap * 0.45));
     ctx.lineCap = "round";
 
     for (let index = 0; index < barCount; index += 1) {
       const barX = (index + 0.5) * xGap;
-      // Compressed toward the top so the loudest bars keep headroom for the
-      // playhead ripple instead of clipping flat.
-      const amplitude = Math.max(0, heights[index]);
-      const barHeight = Math.min(
-        halfHeight - dpr,
-        halfHeight * 0.86 * Math.pow(amplitude, 0.8),
-      );
+      const amplitude = Math.min(1, Math.max(0, heights[index]));
+      const barHeight = halfHeight * 0.92 * amplitude;
       const coverage = progress * barCount - index;
       ctx.strokeStyle = sweepColor(coverage);
       ctx.beginPath();
       ctx.moveTo(barX, halfHeight - barHeight);
       ctx.lineTo(barX, halfHeight + barHeight);
+      ctx.stroke();
+    }
+
+    // Playhead cursor with a trailing gradient wake, after destruct.dev's
+    // sample rows. Only while the clip is actually sounding — the settled
+    // all-accent state is the completion confirmation.
+    if (playing && progress > 0) {
+      const cursorX = progress * width;
+      const wake = ctx.createLinearGradient(
+        cursorX - WAKE_WIDTH * width,
+        0,
+        cursorX,
+        0,
+      );
+      wake.addColorStop(0, "rgba(0, 0, 0, 0)");
+      wake.addColorStop(1, ACCENT_WAKE);
+      ctx.fillStyle = wake;
+      ctx.fillRect(
+        cursorX - WAKE_WIDTH * width,
+        height * 0.025,
+        WAKE_WIDTH * width,
+        height * 0.95,
+      );
+
+      ctx.strokeStyle = ACCENT;
+      ctx.lineWidth = Math.max(1, dpr);
+      ctx.lineCap = "butt";
+      ctx.beginPath();
+      ctx.moveTo(cursorX, height * 0.025);
+      ctx.lineTo(cursorX, height * 0.975);
       ctx.stroke();
     }
   }
@@ -277,9 +295,9 @@ export function createWaveformView(canvas, options = {}) {
     }
 
     // Springs pick up from wherever the previous shape left them; a fresh
-    // (empty) view rises from the quiet floor instead of popping in.
+    // (empty) view prints up from the dotted centerline.
     if (heights.length !== next.length) {
-      heights = next.map((_, index) => heights[index] ?? REST_FLOOR);
+      heights = next.map((_, index) => heights[index] ?? DOT_FLOOR);
       velocities = next.map((_, index) => velocities[index] ?? 0);
       rest = next.map((_, index) => rest[index] ?? heights[index]);
     }
