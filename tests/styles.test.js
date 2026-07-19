@@ -41,12 +41,17 @@ describe('interaction styles', () => {
     expect(waveformBlock).toContain('height: 4rem;');
   });
 
-  it('animates the waveform bars without drawing a separate cursor line', () => {
+  it('sweeps the waveform bars continuously without a separate cursor line', () => {
+    const viewSource = readFileSync('src/waveform-view.js', 'utf8');
     const appSource = readFileSync('src/app.js', 'utf8');
 
-    expect(appSource).not.toContain('const cursorX = Math.min(width, progress * width);');
-    expect(appSource).not.toContain("ctx.moveTo(cursorX - dpr, height * 0.06);");
-    expect(appSource).toContain('const played = (index + 1) / activeWaveformBars.length <= progress;');
+    expect(appSource).not.toContain('cursorX');
+    expect(viewSource).not.toContain('cursorX');
+    // Sub-bar coverage blends the playhead color instead of stepping whole
+    // bars, and per-bar springs (not fixed durations) drive the heights.
+    expect(viewSource).toContain('const coverage = progress * barCount - index;');
+    expect(viewSource).toContain('const STIFFNESS');
+    expect(viewSource).toContain('const DAMPING');
   });
 
   it('disables all animation under prefers-reduced-motion', () => {

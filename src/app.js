@@ -12,6 +12,7 @@ import {
   normalizeRomaji,
 } from "./prompts.js";
 import { createProgressStore, createSessionStore } from "./storage.js";
+import { createWaveformView, resampleWaveform } from "./waveform-view.js";
 
 // WAVEFORM_DATA is ~22 KB and is only used by the sound-to-kana waveform
 // render. Defer the import until that mode is first engaged so the initial
@@ -514,23 +515,6 @@ function setText(element, value) {
   element.textContent = value;
 }
 
-// The waveform renders as 36 chunky signage bars (the design's 250×64px
-// stage); the 100-bucket peak data is downsampled to that count.
-const WAVEFORM_BAR_COUNT = 36;
-
-function resampleWaveform(values, sampleCount = WAVEFORM_BAR_COUNT) {
-  if (!Array.isArray(values) || values.length === 0) {
-    return Array.from({ length: sampleCount }, () => 0.12);
-  }
-
-  return Array.from({ length: sampleCount }, (_, index) => {
-    const sourceIndex = Math.round(
-      (index / Math.max(sampleCount - 1, 1)) * (values.length - 1),
-    );
-    return Math.max(0.12, (values[sourceIndex] ?? 12) / 100);
-  });
-}
-
 export function createApp(root = document.querySelector("#app"), options = {}) {
   if (!root) {
     return null;
@@ -619,25 +603,15 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
   let audioState = "idle";
   let audioPlaybackToken = 0;
   let activeWaveformKey = null;
-  let activeWaveformBars = [];
-  let waveformDuration = 0;
-  let waveformProgress = 0;
-  let waveformStartedAt = 0;
-  let waveformFrame = null;
   let writeDrill = null;
   let writeRevealPlayer = null;
   let writeDemoShown = false;
   let writeResult = null;
   let writeNoteState = null;
 
-  const scheduleFrame =
-    typeof globalThis.requestAnimationFrame === "function"
-      ? globalThis.requestAnimationFrame.bind(globalThis)
-      : (callback) => setTimeout(() => callback(Date.now()), 16);
-  const cancelFrame =
-    typeof globalThis.cancelAnimationFrame === "function"
-      ? globalThis.cancelAnimationFrame.bind(globalThis)
-      : clearTimeout;
+  // Spring-driven signage-bar waveform for the aural prompt; owns its own
+  // animation loop and settles itself when idle.
+  const waveformView = createWaveformView(elements.waveformCanvas);
 
   function clearAdvanceTimer() {
     if (advanceTimer) {
@@ -649,14 +623,7 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
   function clearAudioState() {
     audioPlaybackToken += 1;
     audioState = "idle";
-    waveformProgress = 0;
-    waveformStartedAt = 0;
-    waveformDuration = 0;
-
-    if (waveformFrame) {
-      cancelFrame(waveformFrame);
-      waveformFrame = null;
-    }
+    waveformView?.resetPlayback();
   }
 
   function advancePrompt() {
@@ -856,98 +823,14 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
     elements.audioPosterButton.dataset.audioState = audioState;
   }
 
-  function getWaveformContext() {
-    const canvas = elements.waveformCanvas;
-
-    if (!canvas) {
-      return null;
-    }
-
-    const dpr = globalThis.devicePixelRatio || 1;
-    const cssWidth = canvas.clientWidth || canvas.offsetWidth || 250;
-    const cssHeight = canvas.clientHeight || canvas.offsetHeight || 64;
-    const width = Math.max(1, Math.round(cssWidth * dpr));
-    const height = Math.max(1, Math.round(cssHeight * dpr));
-
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
-    }
-
-    const ctx =
-      typeof canvas.getContext === "function" ? canvas.getContext("2d") : null;
-
-    if (!ctx) {
-      return null;
-    }
-
-    return { canvas, ctx, width, height, dpr };
-  }
-
-  function drawWaveform(progress = waveformProgress) {
-    const setup = getWaveformContext();
-
-    if (!setup) {
-      return;
-    }
-
-    const { ctx, width, height, dpr } = setup;
-    ctx.clearRect(0, 0, width, height);
-
-    if (activeWaveformBars.length === 0) {
-      return;
-    }
-
-    const halfHeight = height * 0.5;
-    const xGap = width / activeWaveformBars.length;
-    // 5px-wide bars with a 2px gap at the design's 250px stage width.
-    ctx.lineWidth = Math.max(1.5, xGap * 0.72);
-    ctx.lineCap = "round";
-
-    for (let index = 0; index < activeWaveformBars.length; index += 1) {
-      const barX = (index + 0.5) * xGap;
-      const barHeight = Math.min(
-        halfHeight - dpr,
-        halfHeight * activeWaveformBars[index] * 1.76,
-      );
-      const played = (index + 1) / activeWaveformBars.length <= progress;
-      ctx.strokeStyle = played ? "#14669e" : "rgba(26, 24, 21, 0.28)";
-      ctx.beginPath();
-      ctx.moveTo(barX, halfHeight - barHeight);
-      ctx.lineTo(barX, halfHeight + barHeight);
-      ctx.stroke();
-    }
-  }
-
-  function animateWaveformFrame(timestamp) {
-    if (audioState !== "playing" || waveformDuration <= 0) {
-      waveformFrame = null;
-      return;
-    }
-
-    waveformProgress = Math.min(
-      (timestamp - waveformStartedAt) / waveformDuration,
-      1,
-    );
-    drawWaveform(waveformProgress);
-
-    if (waveformProgress < 1) {
-      waveformFrame = scheduleFrame(animateWaveformFrame);
-      return;
-    }
-
-    waveformFrame = null;
-  }
-
   function renderWaveform(prompt) {
     if (!elements.waveformCanvas || !elements.audioPosterButton) {
       return;
     }
 
     if (!prompt || sessionStore.getState().mode !== "sound-to-kana") {
-      activeWaveformBars = [];
       activeWaveformKey = null;
-      drawWaveform(0);
+      waveformView?.clear();
       return;
     }
 
@@ -960,28 +843,30 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
           renderWaveform(currentPrompt);
         }
       });
-      activeWaveformBars = [];
       activeWaveformKey = null;
-      drawWaveform(0);
+      waveformView?.clear();
       return;
     }
 
     const waveform = waveformData[prompt.target.audioId];
 
     if (!waveform) {
-      activeWaveformBars = [];
       activeWaveformKey = null;
-      drawWaveform(0);
+      waveformView?.clear();
       return;
     }
 
     if (activeWaveformKey !== prompt.target.audioId) {
-      activeWaveformBars = resampleWaveform(waveform.v, WAVEFORM_BAR_COUNT);
       activeWaveformKey = prompt.target.audioId;
+      // The new syllable's silhouette morphs in with a left→right stagger.
+      // The very first paint snaps instead — entrances respond to input,
+      // not mounting. (If audio is already playing — the data chunk arrived
+      // mid-clip — the view picks the sweep up at the true elapsed spot.)
+      waveformView?.setBars(resampleWaveform(waveform.v), {
+        duration: waveform.d ?? 400,
+        animate: hasRendered,
+      });
     }
-
-    waveformDuration = waveform.d ?? 400;
-    drawWaveform(audioState === "playing" ? waveformProgress : 0);
   }
 
   async function handleAudioPrompt(
@@ -1011,28 +896,17 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
       token = audioPlaybackToken + 1;
       audioPlaybackToken = token;
       audioState = "playing";
-      waveformProgress = 0;
-      waveformStartedAt =
-        typeof performance !== "undefined" ? performance.now() : Date.now();
       renderAudioState();
-      drawWaveform(0);
-
-      if (waveformFrame) {
-        cancelFrame(waveformFrame);
-      }
-      waveformFrame = scheduleFrame(animateWaveformFrame);
+      waveformView?.beginPlayback();
     }
 
     await playKanaAudio(audioId, audioClips);
 
     if (animatePrompt && audioPlaybackToken === token) {
       audioState = "idle";
-      waveformProgress = 1;
-      if (waveformFrame) {
-        cancelFrame(waveformFrame);
-        waveformFrame = null;
-      }
-      drawWaveform(1);
+      // The sweep completes to the all-played state as the confirmation;
+      // the bars' springs settle themselves.
+      waveformView?.finishPlayback();
       renderAudioState();
     }
   }
