@@ -1236,7 +1236,15 @@ export function createApp(root = document.querySelector("#app"), options = {}) {
   }
 
   function handleWriteComplete(result) {
-    if (!currentPrompt || feedback) {
+    // Recall grading is async — the user may have switched modes or
+    // advanced while the recognizer ran. Only grade the prompt that is
+    // still the live write prompt.
+    if (
+      !currentPrompt ||
+      feedback ||
+      currentPrompt.kind !== "write" ||
+      sessionStore.getState().mode !== "write"
+    ) {
       return;
     }
 

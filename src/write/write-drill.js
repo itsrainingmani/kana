@@ -251,7 +251,11 @@ let recognizerStart = null;
 
 export function warmRecognizer() {
   if (!recognizerStart) {
-    recognizerStart = loadRecognizer(modelUrl).catch(() => null);
+    recognizerStart = loadRecognizer(modelUrl).catch(() => {
+      // Let a later prompt retry the download instead of pinning null.
+      recognizerStart = null;
+      return null;
+    });
   }
   return recognizerStart;
 }
@@ -728,9 +732,6 @@ export function createWriteDrill({ canvas, onEvent }) {
     },
     finish() {
       return finishNow();
-    },
-    renderNow() {
-      render(now());
     },
     dispose() {
       disposed = true;
